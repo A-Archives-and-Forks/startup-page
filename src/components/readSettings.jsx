@@ -22,7 +22,11 @@ function mergeSettings(defaultValue, savedValue) {
       return defaultValue;
     }
 
-    return defaultValue.map((item, index) => mergeSettings(item, savedValue[index]));
+    const merged = defaultValue.map((item, index) => mergeSettings(item, savedValue[index]));
+    if (savedValue.length > defaultValue.length) {
+      return merged.concat(savedValue.slice(defaultValue.length));
+    }
+    return merged;
   }
 
   if (isPlainObject(defaultValue)) {
@@ -52,8 +56,12 @@ function createSettingsEnvelope(settings, overrides = {}) {
 function normalizeSettingsShape(settings) {
   const mergedSettings = mergeSettings(defaultSettings, settings);
   const decorativeVideo = mergedSettings.decorativeVideo || {};
+
   let urls = Array.isArray(decorativeVideo.urls)
-    ? decorativeVideo.urls.filter((value) => typeof value === "string" && value.trim() !== "").map((value) => value.trim()).slice(0, 10)
+    ? decorativeVideo.urls
+        .filter((value) => typeof value === "string" && value.trim() !== "")
+        .map((value) => value.trim())
+        .slice(0, 10)
     : [];
 
   if (urls.length === 0 && typeof decorativeVideo.url === "string" && decorativeVideo.url.trim() !== "") {
@@ -65,6 +73,9 @@ function normalizeSettingsShape(settings) {
     decorativeVideo: {
       ...decorativeVideo,
       urls,
+      zoom: decorativeVideo.zoom ?? decorativeVideo.tall?.zoom ?? 1.6,
+      offsetX: decorativeVideo.offsetX ?? decorativeVideo.tall?.offsetX ?? 0,
+      offsetY: decorativeVideo.offsetY ?? decorativeVideo.tall?.offsetY ?? 0,
     },
   };
 }

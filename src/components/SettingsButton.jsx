@@ -201,65 +201,74 @@ function SettingsButton() {
     }));
   };
 
-  const handleDecorativeVideoChange = (key, value) => {
-    updateSettings((prevSettings) => ({
-      ...prevSettings,
-      decorativeVideo: {
-        ...prevSettings.decorativeVideo,
-        [key]: value,
-      },
-    }));
-  };
+  const getDecorativeVideoUrlsForEdit = (decorativeVideo) =>
+    decorativeVideo?.urls?.length ? decorativeVideo.urls : [""];
 
   const handleDecorativeVideoUrlChange = (index, value) => {
-    updateSettings((prevSettings) => {
-      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
-        ? [...prevSettings.decorativeVideo.urls]
-        : [];
-      currentUrls[index] = value;
+    setSettingsState((prev) => {
+      const decorativeVideo = prev.decorativeVideo || {};
+      const urls = [...getDecorativeVideoUrlsForEdit(decorativeVideo)];
+
+      urls[index] = value;
 
       return {
-        ...prevSettings,
+        ...prev,
         decorativeVideo: {
-          ...prevSettings.decorativeVideo,
-          urls: currentUrls,
+          ...decorativeVideo,
+          urls: urls.slice(0, 10),
+          zoom: decorativeVideo.zoom ?? decorativeVideo.tall?.zoom ?? 1.6,
+          offsetX: decorativeVideo.offsetX ?? decorativeVideo.tall?.offsetX ?? 0,
+          offsetY: decorativeVideo.offsetY ?? decorativeVideo.tall?.offsetY ?? 0,
         },
       };
     });
   };
 
   const handleAddDecorativeVideoUrl = () => {
-    updateSettings((prevSettings) => {
-      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
-        ? prevSettings.decorativeVideo.urls
-        : [];
-
-      if (currentUrls.length >= 10) {
-        return prevSettings;
-      }
+    setSettingsState((prev) => {
+      const decorativeVideo = prev.decorativeVideo || {};
+      const urls = getDecorativeVideoUrlsForEdit(decorativeVideo);
 
       return {
-        ...prevSettings,
+        ...prev,
         decorativeVideo: {
-          ...prevSettings.decorativeVideo,
-          urls: [...currentUrls, ""],
+          ...decorativeVideo,
+          urls: [...urls, ""].slice(0, 10),
         },
       };
     });
   };
 
   const handleRemoveDecorativeVideoUrl = (index) => {
-    updateSettings((prevSettings) => {
-      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
-        ? [...prevSettings.decorativeVideo.urls]
-        : [];
-      currentUrls.splice(index, 1);
+    setSettingsState((prev) => {
+      const decorativeVideo = prev.decorativeVideo || {};
+      const urls = getDecorativeVideoUrlsForEdit(decorativeVideo).filter(
+        (_, currentIndex) => currentIndex !== index
+      );
 
       return {
-        ...prevSettings,
+        ...prev,
         decorativeVideo: {
-          ...prevSettings.decorativeVideo,
-          urls: currentUrls,
+          ...decorativeVideo,
+          urls: urls.length ? urls : [""],
+        },
+      };
+    });
+  };
+
+  const handleDecorativeVideoChange = (key, value) => {
+    setSettingsState((prev) => {
+      const decorativeVideo = prev.decorativeVideo || {};
+
+      return {
+        ...prev,
+        decorativeVideo: {
+          ...decorativeVideo,
+          urls: getDecorativeVideoUrlsForEdit(decorativeVideo).slice(0, 10),
+          zoom: decorativeVideo.zoom ?? decorativeVideo.tall?.zoom ?? 1.6,
+          offsetX: decorativeVideo.offsetX ?? decorativeVideo.tall?.offsetX ?? 0,
+          offsetY: decorativeVideo.offsetY ?? decorativeVideo.tall?.offsetY ?? 0,
+          [key]: value,
         },
       };
     });
@@ -777,34 +786,47 @@ function SettingsButton() {
                       Add up to 10 looping MP4 links. One is chosen at random on load, and both tiles look into the same shared scene.
                     </CardDescription>
                   </CardHeader>
+
                   <CardContent className="space-y-5">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs font-medium text-foreground">Video URLs</p>
-                          <p className="text-xs text-muted-foreground">Leave blanks empty. The saved list is capped at 10.</p>
+                          <p className="text-xs text-muted-foreground">
+                            Leave blanks empty. The saved list is capped at 10.
+                          </p>
                         </div>
+
                         <Button
                           type="button"
                           variant="outline"
                           onClick={handleAddDecorativeVideoUrl}
-                          disabled={(settingsState.decorativeVideo?.urls?.length || 0) >= 10}
+                          disabled={(settingsState.decorativeVideo?.urls ?? []).length >= 10}
                         >
                           Add link
                         </Button>
                       </div>
+
                       <div className="space-y-2">
                         {(settingsState.decorativeVideo?.urls?.length
                           ? settingsState.decorativeVideo.urls
-                          : [""]).map((url, index) => (
+                          : [""]
+                        ).map((url, index) => (
                           <div key={index} className="flex items-center gap-2">
                             <Input
                               value={url}
                               placeholder="https://example.com/video.mp4"
-                              onChange={(event) => handleDecorativeVideoUrlChange(index, event.target.value)}
+                              onChange={(event) =>
+                                handleDecorativeVideoUrlChange(index, event.target.value)
+                              }
                             />
+
                             {(settingsState.decorativeVideo?.urls?.length || 0) > 1 ? (
-                              <Button type="button" variant="outline" onClick={() => handleRemoveDecorativeVideoUrl(index)}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleRemoveDecorativeVideoUrl(index)}
+                              >
                                 Remove
                               </Button>
                             ) : null}
@@ -812,10 +834,12 @@ function SettingsButton() {
                         ))}
                       </div>
                     </div>
+
                     <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
                       <p className="text-sm text-muted-foreground">
                         Move and scale the underlying shared video. The box positions stay fixed, but what you see through them changes together.
                       </p>
+
                       <RangeControl
                         label="Zoom"
                         value={
@@ -828,6 +852,7 @@ function SettingsButton() {
                         step={0.05}
                         onChange={(value) => handleDecorativeVideoChange("zoom", value)}
                       />
+
                       <RangeControl
                         label="Horizontal Offset"
                         value={
@@ -840,6 +865,7 @@ function SettingsButton() {
                         step={1}
                         onChange={(value) => handleDecorativeVideoChange("offsetX", value)}
                       />
+
                       <RangeControl
                         label="Vertical Offset"
                         value={

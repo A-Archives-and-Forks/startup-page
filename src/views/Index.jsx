@@ -1,5 +1,6 @@
 /*eslint-disable*/
 import React from "react";
+import { KBarProvider } from "kbar";
 
 import { readSettings } from '../components/readSettings';
 import {
@@ -28,6 +29,8 @@ import Toggle from "../components/ThemeToggle";
 import ThemeProvider from "../components/ThemeContext";
 import Bookmark from "../components/Bookmark";
 import SettingsButton from "../components/SettingsButton";
+import CommandPalette from "../components/CommandPalette";
+import useKBarActions from "../components/useKBarActions";
 
 // assets
 import desert from "../assets/img/desert.mp4"
@@ -72,6 +75,16 @@ function DecorativeVideoTile({
         }}
       />
     </div>
+  );
+}
+
+function KBarWrapper({ children }) {
+  useKBarActions();
+  return (
+    <>
+      <CommandPalette />
+      {children}
+    </>
   );
 }
 
@@ -152,6 +165,8 @@ export default function Index() {
 
   return (
     <ThemeProvider initialThemeMode={ui.themeMode} initialThemePalette={ui.themePalette}>
+      <KBarProvider>
+        <KBarWrapper>
       <section className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-10 pb-10 transition-colors">
         <div className={`grid w-fit ${gridColumnsClass} ${gridRowsClass} ${gapClass} grid-flow-row-dense content-center justify-center`}>
 
@@ -189,6 +204,8 @@ export default function Index() {
           {showBox("clock") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}><Clock /></div>}
         </div>
       </section>
+        </KBarWrapper>
+      </KBarProvider>
     </ThemeProvider>
   );
 }
