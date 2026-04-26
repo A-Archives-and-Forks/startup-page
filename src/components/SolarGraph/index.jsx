@@ -1,0 +1,166 @@
+import React, { useRef, useEffect } from 'react';
+import { readSettings } from '../readSettings';
+import {
+  deg2rad,
+  gaussianDistribution,
+  calculateSolarSettings,
+  getCurrentLst,
+} from './solarMath';
+import { renderSky } from './renderSky';
+import { createStarField, renderStars } from './renderStars';
+import { renderCurve } from './renderCurve';
+import { renderSun } from './renderSun';
+import { renderHorizonGlow } from './renderHorizonGlow';
+
+const AMPLITUDE_SCALE = 80;
+const SWEEP_SPEED = 0.1;
+const SWEEP_INTERVAL = 22; // ms per sweep step
+
+export default function SolarGraph() {
+  const canvasRef = useRef(null);
+  const stateRef = useRef({
+    lst: 0,
+    sweeping: true,
+    stars: null,
+    solar: null,
+    animationTime: 0,
+    animFrameId: null,
+    lastTimestamp: 0,
+  });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const state = stateRef.current;
+
+    // Resolve location
+    const settings = readSettings();
+    let latitude, longitude;
+
+    function initSolar(lat, lng) {
+      latitude = deg2rad(lat);
+      longitude = deg2rad(lng);
+      state.solar = calculateSolarSettings(latitude, longitude);
+      state.stars = createStarField(400);
+      state.lst = 0;
+      state.sweeping = true;
+      state.lastTimestamp = performance.now();
+      startAnimation();
+    }
+
+    if (settings.latitude) {
+      initSolar(settings.latitude, settings.longitude);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => initSolar(position.coords.latitude, position.coords.longitude),
+        () => initSolar(40.7128, -74.006) // fallback: NYC
+      );
+    } else {
+      initSolar(40.7128, -74.006);
+    }
+
+    // Resize handler
+    function resize() {
+      const container = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas.parentElement);
+    resize();
+
+    // Sweep timer for startup animation
+    let sweepTimer = null;
+
+    function startAnimation() {
+      const targetLst = state.solar.currentTime;
+
+      // Startup sweep: animate from 0 to current time
+      sweepTimer = setInterval(() => {
+        if (state.sweeping) {
+          state.lst += SWEEP_SPEED;
+          if (state.lst >= targetLst) {
+            state.lst = targetLst;
+            state.sweeping = false;
+            clearInterval(sweepTimer);
+          }
+        }
+      }, SWEEP_INTERVAL);
+
+      // Real-time update every 60s after sweep completes
+      const realTimeTimer = setInterval(() => {
+        if (!state.sweeping) {
+          state.lst = getCurrentLst();
+        }
+      }, 60000);
+
+      // Main render loop
+      function frame(timestamp) {
+        const dt = (timestamp - state.lastTimestamp) / 1000;
+        state.lastTimestamp = timestamp;
+        state.animationTime += dt;
+
+        draw(ctx, canvas, state);
+        state.animFrameId = requestAnimationFrame(frame);
+      }
+
+      state.animFrameId = requestAnimationFrame(frame);
+
+      // Store for cleanup
+      state._realTimeTimer = realTimeTimer;
+    }
+
+    function draw(ctx, canvas, state) {
+      if (!state.solar || !state.stars) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+
+      const { sunrise } = state.solar;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Sky background
+      renderSky(ctx, w, h, state.lst, sunrise);
+
+      // 2. Stars
+      renderStars(ctx, w, h, state.stars, state.animationTime, state.lst, sunrise);
+
+      // 3. Solar curve + horizon line (returns horizonY for other layers)
+      const { horizonY } = renderCurve(ctx, w, h, AMPLITUDE_SCALE, sunrise);
+
+      // 4. Horizon glow (sunrise/sunset effects)
+      renderHorizonGlow(ctx, w, state.lst, AMPLITUDE_SCALE, sunrise, horizonY);
+
+      // 5. Sun
+      renderSun(ctx, w, state.lst, AMPLITUDE_SCALE, sunrise, horizonY);
+    }
+
+    return () => {
+      if (state.animFrameId) cancelAnimationFrame(state.animFrameId);
+      if (sweepTimer) clearInterval(sweepTimer);
+      if (state._realTimeTimer) clearInterval(state._realTimeTimer);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  return (
+    <div id="container" className="w-full h-full rounded-xl">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full rounded-xl"
+        id="canvas"
+      />
+    </div>
+  );
+}

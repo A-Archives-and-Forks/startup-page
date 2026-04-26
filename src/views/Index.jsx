@@ -8,7 +8,7 @@ const settings = readSettings();
 import Clock from "../components/Clock";
 import Unsplash from "../components/Unsplash";
 import SearchBox from "../components/Search";
-import SolarGraph from "../components/SolarGraph";
+import SolarGraph from "../components/SolarGraph/index";
 import WeatherBox from "../components/Weather";
 import Toggle from "../components/ThemeToggle";
 import ThemeProvider from "../components/ThemeContext";

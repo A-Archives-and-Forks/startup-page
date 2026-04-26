@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import vitePluginString from 'vite-plugin-string'
 import postcss from './postcss.config.js'
 
 
@@ -8,8 +7,7 @@ import postcss from './postcss.config.js'
 export default defineConfig({
   base: "https://timothypholmes.github.io/startup-page/",
   plugins: [
-    react(), 
-    vitePluginString()
+    react(),
   ],
   css: {
     postcss,
