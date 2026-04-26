@@ -21,17 +21,17 @@ help:
 	@echo "  serve          - Build and serve locally on port 8000"
 	@echo "  deploy         - Deploy to GitHub Pages"
 	@echo "  clean          - Clean build artifacts"
-	@echo "  css            - Build Tailwind CSS"
+	@echo "  css            - No-op; Vite builds CSS automatically"
 
 # Install frontend dependencies
 install:
 	@echo "Installing frontend dependencies..."
-	npm install
+	pnpm install
 
 # Install server dependencies
 server-install:
 	@echo "Installing server dependencies..."
-	cd server && npm install
+	pnpm install --filter server
 
 # Install all dependencies
 all-install: install server-install
@@ -46,13 +46,12 @@ setup:
 		echo "Config file already exists."; \
 	fi
 	@$(MAKE) install
-	@$(MAKE) css
 	@$(MAKE) build
 
 # Start development server
 start:
 	@echo "Starting development server..."
-	npm run start
+	pnpm run dev
 
 # Alias for start
 dev: start
@@ -60,42 +59,41 @@ dev: start
 # Start backend server
 server-start:
 	@echo "Starting backend server..."
-	cd server && node index.js
+	pnpm --dir server exec node index.js
 
 # Build Tailwind CSS
 css:
-	@echo "Building Tailwind CSS..."
-	npm run build:tailwind
+	@echo "CSS is built by Vite during dev/build; no standalone step is required."
 
 # Build for production
-build: css
+build:
 	@echo "Building for production..."
-	npm run build
+	pnpm run build
 
 # Build for local deployment
-build-local: css
+build-local:
 	@echo "Building for local deployment..."
-	npm run build:local
+	pnpm run build:local
 
 # Build for Vercel deployment
-build-vercel: css
+build-vercel:
 	@echo "Building for Vercel deployment..."
-	npm run build:vercel
+	pnpm run build:vercel
 
 # Preview production build
 preview:
 	@echo "Starting preview server..."
-	npm run preview
+	pnpm run preview
 
 # Build and serve locally
 serve: build-local
 	@echo "Building and serving locally on port 8000..."
-	npm run serve
+	pnpm run serve
 
 # Deploy to GitHub Pages
 deploy:
 	@echo "Deploying to GitHub Pages..."
-	npm run deploy
+	pnpm run deploy
 
 # Clean build artifacts
 clean:

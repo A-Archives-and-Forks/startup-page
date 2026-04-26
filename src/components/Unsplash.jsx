@@ -39,8 +39,8 @@ class Unsplash extends Component {
 
   render() {
     return (
-      <div class="relative rounded-xl overflow-hidden h-full bg-center bg-no-repeat border-0 dark:border-4 dark:border-off-white2">
-      <img class="min-w-full min-h-full" src={this.state.photos}/>
+      <div className="relative rounded-xl overflow-hidden h-full bg-center bg-no-repeat border-0 dark:border-4 dark:border-off-white2">
+      <img className="min-w-full min-h-full" src={this.state.photos}/>
       </div>
     );
   }

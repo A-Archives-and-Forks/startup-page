@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import Cookies from 'js-cookie';
 import settings from '../config/settings.json';
@@ -141,9 +141,10 @@ function SettingsButton() {
       >
         <HiOutlineCog />
       </button>
-      <Dialog open={open} onClose={() => setOpen(false)} className="items-center justify-center z-10">
-        <Dialog.Overlay className="" />
-        <div className="items-center justify-center bg-off-white1 dark:bg-blue5 dark:text-white w-full h-full p-4 md:p-6 space-y-6 text-center overflow-auto max-h-96">
+        <Dialog open={open} onClose={() => setOpen(false)} className="relative z-10">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="items-center justify-center bg-off-white1 dark:bg-blue5 dark:text-white w-full max-w-4xl rounded-xl p-4 md:p-6 space-y-6 text-center overflow-auto max-h-[80vh]">
           <Dialog.Title className="text-lg font-medium leading-6 dark:text-white">Settings</Dialog.Title>
           {Object.keys(settingsState).map((key) => renderSection(key, settingsState[key]))}
           <button
@@ -158,6 +159,7 @@ function SettingsButton() {
           >
             Reset
           </button>
+        </div>
         </div>
       </Dialog>
     </>
