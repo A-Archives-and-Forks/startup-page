@@ -8,7 +8,7 @@ import { renderSun } from './renderSun';
 import { renderHorizonGlow } from './renderHorizonGlow';
 import { renderMarkers } from './renderMarkers';
 
-const SWEEP_SPEED = 0.1;
+const SWEEP_SPEED = 0.04;
 const SWEEP_INTERVAL = 22; // ms per sweep step
 
 export default function SolarGraph() {
@@ -128,7 +128,7 @@ export default function SolarGraph() {
       ctx.clearRect(0, 0, w, h);
 
       // 1. Sky background
-      renderSky(ctx, w, h, effectiveLst, solar);
+      renderSky(ctx, w, h);
 
       // 2. Stars
       renderStars(ctx, w, h, state.stars, state.animationTime, effectiveLst, solar);

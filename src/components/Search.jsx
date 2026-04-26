@@ -40,26 +40,29 @@ class SearchBox extends React.Component {
   }
 
   render() {
+    const searchButtonClass =
+      "flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-card/80 shadow-sm outline-none transition hover:bg-accent/70 disabled:border-primary/40 disabled:bg-primary/14 disabled:opacity-100 opacity-75";
+
     return (
       <div className="flex justify-center">
         <div>
-          <div className="flex space-x-8 justify-center pt-8 pb-8" onClick={this.buttonToggle.bind(this)}>
-              <button className="bg-google-icon bg-no-repeat w-8 h-8 outline-inherit cursor-pointer border-none disabled:opacity-100 opacity-50"
+          <div className="flex space-x-8 justify-center pt-8 pb-4" onClick={this.buttonToggle.bind(this)}>
+              <button className={`${searchButtonClass} bg-google-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
                       type="button" disabled={this.state.disabled === "1"}
                       data-engine-id="1" data-address="http://www.google.com/search?q=">
               </button>
-              <button className="bg-duck-icon bg-no-repeat w-8 h-8 outline-inherit cursor-pointer border-none disabled:opacity-100 opacity-50"
+              <button className={`${searchButtonClass} bg-duck-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
                       type="button" disabled={this.state.disabled === "2"}
                       data-engine-id="2" data-address="https://www.duckduckgo.com/?q="></button>
-              <button className="bg-wolfram-icon bg-no-repeat w-8 h-8 outline-inherit cursor-pointer border-none disabled:opacity-100 opacity-50"
+              <button className={`${searchButtonClass} bg-wolfram-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
                       type="button" disabled={this.state.disabled === "3"}
                       data-engine-id="3" data-address="https://www.wolframalpha.com/input/?i="></button>
-              <button className="bg-stack-icon bg-no-repeat w-8 h-8 outline-inherit cursor-pointer border-none disabled:opacity-100 opacity-50"
+              <button className={`${searchButtonClass} bg-stack-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
                       type="button" disabled={this.state.disabled === "4"}
                       data-engine-id="4" data-address="https://stackoverflow.com/search?q="></button>
           </div>
           <input
-            className="search-input items-center w-60 h-5 boarder-none bg-off-white1 border-white border border-solid border-gray-300 rounded-xl focus:border-red2 focus:outline-none"
+            className="search-input items-center w-60 h-9 border border-input bg-input/45 text-sm text-foreground placeholder:text-muted-foreground rounded-xl shadow-sm transition focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
             autoFocus
             id="search-input"
             type="text"

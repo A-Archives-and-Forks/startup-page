@@ -129,20 +129,21 @@ export default function HeadlinesHero() {
 
   return (
     <a
-      className="group relative block h-full w-full overflow-hidden rounded-[inherit]"
+      className="group relative block h-full w-full overflow-hidden rounded-[inherit] !text-white"
       href={article.url}
       target="_blank"
       rel="noreferrer"
+      style={{ color: "#ffffff" }}
     >
       <img
         src={article.image}
         alt={article.title}
         className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.08),rgba(17,24,39,0.26)_35%,rgba(6,10,18,0.82)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.38)_34%,rgba(2,6,23,0.9)_100%)]" />
 
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-        <div className="rounded-full border border-white/20 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-sm">
+        <div className="rounded-full border border-white/25 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] !text-white backdrop-blur-md" style={{ color: "#ffffff" }}>
           {subreddit}
         </div>
         <div className="flex items-center gap-2">
@@ -152,7 +153,7 @@ export default function HeadlinesHero() {
               event.preventDefault();
               changeArticle(-1);
             }}
-            className="rounded-full border border-white/20 bg-black/30 p-2 text-white backdrop-blur-sm transition hover:bg-black/45"
+            className="rounded-full border border-white/25 bg-white/8 p-2 !text-white backdrop-blur-md transition hover:bg-white/14"
             aria-label="Previous headline"
           >
             <HiChevronLeft className="size-4" />
@@ -163,7 +164,7 @@ export default function HeadlinesHero() {
               event.preventDefault();
               changeArticle(1);
             }}
-            className="rounded-full border border-white/20 bg-black/30 p-2 text-white backdrop-blur-sm transition hover:bg-black/45"
+            className="rounded-full border border-white/25 bg-white/8 p-2 !text-white backdrop-blur-md transition hover:bg-white/14"
             aria-label="Next headline"
           >
             <HiChevronRight className="size-4" />
@@ -172,12 +173,12 @@ export default function HeadlinesHero() {
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-4">
-        <div className="overflow-hidden rounded-[1.4rem] border border-white/15 bg-black/45 p-4 text-white shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-white/70">
-            <span>{article.source}</span>
-            <span>{article.publishedLabel}</span>
+        <div className="overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/8 p-4 !text-white shadow-xl backdrop-blur-xl" style={{ color: "#ffffff" }}>
+          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] !text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]" style={{ color: "#ffffff" }}>
+            <span style={{ color: "#ffffff" }}>{article.source}</span>
+            <span style={{ color: "#ffffff" }}>{article.publishedLabel}</span>
           </div>
-          <h2 className="mt-3 max-w-3xl text-2xl font-semibold leading-tight md:text-3xl">
+          <h2 className="mt-3 max-w-3xl text-2xl font-semibold leading-tight !text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.82)] md:text-3xl" style={{ color: "#ffffff" }}>
             {article.title}
           </h2>
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
