@@ -4,6 +4,16 @@
   "units": "imperial",
   "unsplashCredential": null,
   "openWeatherCredential": null,
+  "ui": {
+    "themeMode": "system",
+    "themePalette": "zen",
+    "gridDensity": "comfortable",
+    "cardStyle": "rounded",
+    "showDecorativeMedia": true
+  },
+  "layout": {
+    "hiddenBoxes": {}
+  },
   "unsplash": {
     "unsplashBox1": ["chicago", "miami", "new york", "seattle", "austin"],
     "unsplashBox2": ["florida", "alaska", "california", "washington", "maine", "montana"],

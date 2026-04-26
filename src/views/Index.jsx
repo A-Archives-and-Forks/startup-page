@@ -12,7 +12,6 @@ import SolarGraph from "../components/SolarGraph/index";
 import WeatherBox from "../components/Weather";
 import Toggle from "../components/ThemeToggle";
 import ThemeProvider from "../components/ThemeContext";
-import News from "../components/News";
 import Windy from "../components/Windy";
 import Bookmark from "../components/Bookmark";
 import SettingsButton from "../components/SettingsButton";
@@ -21,51 +20,61 @@ import SettingsButton from "../components/SettingsButton";
 import desert from "../assets/img/desert.mp4"
 
 export default function Index() {
+  const hiddenBoxes = settings.layout?.hiddenBoxes || {};
+  const showBox = (id) => !hiddenBoxes[id];
+  const ui = settings.ui || {};
+  const gapClass = ui.gridDensity === "compact" ? "gap-y-4 gap-x-4" : "gap-y-6 gap-x-6";
+  const radiusClass = ui.cardStyle === "soft" ? "rounded-[2rem]" : ui.cardStyle === "sharp" ? "rounded-md" : "rounded-xl";
+  const showDecorativeMedia = ui.showDecorativeMedia !== false;
+
+  const panel = (extra = "") => `${radiusClass} ${extra}`;
+  const surface = "bg-card text-card-foreground border border-border/60 shadow-lg";
+  const mutedSurface = "bg-muted/50 text-foreground border border-border/60 shadow-lg";
+  const strongSurface = "bg-primary text-primary-foreground border border-border/40 shadow-lg";
+
   return (
-    <>
-      <section className={`bg-off-white1 dark:bg-blue5 min-h-screen flex items-center justify-center pt-10 pb-10 font-helvetica`}>
-        <div className="grid xl:grid-cols-7 md:grid-cols-5 sm:grid-cols-3 xs:grid-cols-2 gap-y-6 gap-x-6 grid-flow-row-dense content-center">
+    <ThemeProvider initialThemeMode={ui.themeMode} initialThemePalette={ui.themePalette}>
+      <section className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-10 pb-10 transition-colors">
+        <div className={`grid xl:grid-cols-7 md:grid-cols-5 sm:grid-cols-3 xs:grid-cols-2 ${gapClass} grid-flow-row-dense content-center`}>
 
           {/* row 1 */}
-          <div className="overflow-hidden rounded-xl col-span-1 row-span-2 h-80 w-36 shadow-4xl dark:shadow-none">
-            <div className="sticky rounded-xl overflow-hidden h-80 w-36 border-0 dark:border-4 dark:border-off-white2">
+          {showDecorativeMedia && showBox("videoTall") && <div className={panel(`overflow-hidden col-span-1 row-span-2 h-80 w-36 ${surface}`)}>
+            <div className={panel("sticky overflow-hidden h-80 w-36")}>
               <video className="relative object-cover min-h-full max-w-xl -left-12" src={ desert } type="video/mp4" autoPlay muted loop/>
             </div>
-          </div>
-          <div className="rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none">
-            <div className="sticky rounded-xl overflow-hidden h-36 w-36 border-0 dark:border-4 dark:border-off-white2">
+          </div>}
+          {showDecorativeMedia && showBox("videoWide") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}>
+            <div className={panel("sticky overflow-hidden h-36 w-36")}>
               <video className="relative object-cover min-h-full max-w-sm right-48" src={ desert } type="video/mp4" autoPlay muted loop/>
             </div>
-          </div>
-          <div className="bg-blue5 text-black rounded-xl col-span-2 h-36 w-80 shadow-4xl dark:shadow-none border-0 dark:border-4 dark:border-off-white2"><SearchBox /></div>
-          <Bookmark title={ settings.bookmark[0].title } content={ settings.bookmark[0].content } />
-          <div className="bg-off-white1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none"><Unsplash search={ settings.unsplash.unsplashBox1 }/></div>
-          <div className="bg-green2 dark:bg-green1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none border-0 dark:border-4 dark:border-off-white2"><WeatherBox /></div>
+          </div>}
+          {showBox("search") && <div className={panel(`col-span-2 h-36 w-80 ${strongSurface}`)}><SearchBox /></div>}
+          {showBox("bookmark1") && <Bookmark title={ settings.bookmark[0].title } content={ settings.bookmark[0].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
+          {showBox("unsplash1") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox1 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
+          {showBox("weather") && <div className={panel(`col-span-1 h-36 w-36 ${mutedSurface}`)}><WeatherBox /></div>}
           
           {/* row 2 */}
-          <div className="bg-off-white1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none"><Unsplash search={ settings.unsplash.unsplashBox2 }/></div>
-          <Bookmark title={ settings.bookmark[1].title } content={ settings.bookmark[1].content } />
-          <div className="overflow-hidden rounded-xl col-span-3 row-span-2 h-80 shadow-4xl dark:shadow-none "><Windy /></div>
-          <div className="bg-off-white1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none"><Unsplash search={ settings.unsplash.unsplashBox3 }/></div>
+          {showBox("unsplash2") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox2 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
+          {showBox("bookmark2") && <Bookmark title={ settings.bookmark[1].title } content={ settings.bookmark[1].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
+          {showBox("windy") && <div className={panel(`overflow-hidden col-span-3 row-span-2 h-80 ${surface}`)}><Windy cardClass={panel("sticky overflow-hidden h-80")} /></div>}
+          {showBox("unsplash3") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox3 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
 
           {/* row 3 */}
-          <Bookmark title={ settings.bookmark[2].title } content={ settings.bookmark[2].content } />
-          <div className="bg-[#000000] rounded-xl col-span-2 row-span-2 shadow-4xl dark:shadow-none border-0 dark:border-4 dark:border-off-white2"><SolarGraph /></div>
-          <Bookmark title={ settings.bookmark[3].title } content={ settings.bookmark[3].content } />
+          {showBox("bookmark3") && <Bookmark title={ settings.bookmark[2].title } content={ settings.bookmark[2].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
+          {showBox("solarGraph") && <div className={panel("bg-black col-span-2 row-span-2 border border-border/60 shadow-lg")}><SolarGraph /></div>}
+          {showBox("bookmark4") && <Bookmark title={ settings.bookmark[3].title } content={ settings.bookmark[3].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
 
           {/* row 4 */}
-          <Bookmark title={ settings.bookmark[4].title } content={ settings.bookmark[4].content } />
-          <div className="bg-off-white1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none"><Unsplash search={ settings.unsplash.unsplashBox4 }/></div>
-          <div className="flex items-center justify-center bg-blue5 text-white rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none border-0 dark:border-4 dark:border-off-white2">
-            <ThemeProvider>
+          {showBox("bookmark5") && <Bookmark title={ settings.bookmark[4].title } content={ settings.bookmark[4].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
+          {showBox("unsplash4") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox4 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
+          {showBox("themeTools") && <div className={panel(`flex items-center justify-center col-span-1 h-36 w-36 ${strongSurface}`)}>
               <Toggle />
-            </ThemeProvider>
             <SettingsButton />
-          </div>
-          <div className="text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none"><Unsplash search={ settings.unsplash.unsplashBox5 }/></div>
-          <div className="bg-red2 dark:bg-red1 text-black rounded-xl col-span-1 h-36 w-36 shadow-4xl dark:shadow-none border-0 dark:border-4 dark:border-off-white2"><Clock /></div>
+          </div>}
+          {showBox("unsplash5") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox5 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
+          {showBox("clock") && <div className={panel(`col-span-1 h-36 w-36 ${mutedSurface}`)}><Clock /></div>}
         </div>
       </section>
-    </>
+    </ThemeProvider>
   );
 }
