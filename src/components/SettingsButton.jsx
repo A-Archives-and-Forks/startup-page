@@ -394,12 +394,12 @@ function SettingsButton() {
     });
   };
 
-  const handleRemoveBookmarkItem = (index) => {
+  const handleRemoveBookmarkItem = (index, subIndex) => {
     updateSettings((prevSettings) => {
       const bookmark = [...prevSettings.bookmark];
       bookmark[index] = {
         ...bookmark[index],
-        content: bookmark[index].content.slice(0, -1)
+        content: bookmark[index].content.filter((_, currentSubIndex) => currentSubIndex !== subIndex)
       };
       return { ...prevSettings, bookmark };
     });
@@ -906,7 +906,7 @@ function SettingsButton() {
                         </SettingField>
                         <div className="mt-4 space-y-3">
                           {item.content.map((content, subIndex) => (
-                            <div key={subIndex} className="grid gap-3 md:grid-cols-2">
+                            <div key={subIndex} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
                               <SettingField label="Name">
                                 <Input
                                   value={content.name}
@@ -919,15 +919,22 @@ function SettingsButton() {
                                   onChange={(event) => handleBookmarkItemChange(index, subIndex, "url", event.target.value)}
                                 />
                               </SettingField>
+                              <div className="flex items-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRemoveBookmarkItem(index, subIndex)}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
                         <div className="mt-4 flex gap-3">
                           <Button type="button" size="sm" onClick={() => handleAddBookmarkItem(index)}>
                             Add link
-                          </Button>
-                          <Button type="button" size="sm" variant="outline" onClick={() => handleRemoveBookmarkItem(index)}>
-                            Remove link
                           </Button>
                         </div>
                       </div>
