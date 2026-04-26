@@ -87,7 +87,17 @@ export default function Index() {
   const gridRowsClass = "auto-rows-[9rem]";
   const radiusClass = ui.cardStyle === "soft" ? "rounded-[2rem]" : ui.cardStyle === "sharp" ? "rounded-md" : "rounded-xl";
   const showDecorativeMedia = ui.showDecorativeMedia !== false;
-  const decorativeVideoUrl = decorativeVideo.url || desert;
+  const decorativeVideoUrls = Array.isArray(decorativeVideo.urls)
+    ? decorativeVideo.urls.filter((value) => typeof value === "string" && value.trim() !== "")
+    : [];
+  const [decorativeVideoUrl] = React.useState(() => {
+    if (!decorativeVideoUrls.length) {
+      return desert;
+    }
+
+    const randomIndex = Math.floor(Math.random() * decorativeVideoUrls.length);
+    return decorativeVideoUrls[randomIndex] || desert;
+  });
 
   const panel = (extra = "") => `${radiusClass} ${extra}`;
   const surface = "bg-card text-card-foreground border border-border/60 shadow-lg";

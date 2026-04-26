@@ -37,9 +37,9 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
   return (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
           "fixed top-[50%] left-[50%] z-50 grid w-[min(96vw,1120px)] max-h-[92vh] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
           className
         )}

@@ -76,8 +76,8 @@ const navItems = [
 
 function SettingField({ label, description, children }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-foreground">{label}</Label>
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-foreground">{label}</Label>
       {children}
       {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
     </div>
@@ -88,7 +88,7 @@ function RangeControl({ label, value, min, max, step, onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <Label className="text-sm text-foreground">{label}</Label>
+        <Label className="text-xs text-foreground">{label}</Label>
         <span className="text-xs font-medium text-muted-foreground">{Number(value).toFixed(step >= 1 ? 0 : 2)}</span>
       </div>
       <Slider
@@ -108,14 +108,14 @@ function ChoiceButton({ selected, title, description, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-xl border p-4 text-left transition",
+        "rounded-lg border p-3 text-left text-sm transition",
         selected
           ? "border-primary bg-accent text-accent-foreground shadow-sm"
           : "border-border bg-card hover:bg-accent/50"
       )}
     >
       <div className="font-medium">{title}</div>
-      <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{description}</div>
     </button>
   );
 }
@@ -209,6 +209,60 @@ function SettingsButton() {
         [key]: value,
       },
     }));
+  };
+
+  const handleDecorativeVideoUrlChange = (index, value) => {
+    updateSettings((prevSettings) => {
+      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
+        ? [...prevSettings.decorativeVideo.urls]
+        : [];
+      currentUrls[index] = value;
+
+      return {
+        ...prevSettings,
+        decorativeVideo: {
+          ...prevSettings.decorativeVideo,
+          urls: currentUrls,
+        },
+      };
+    });
+  };
+
+  const handleAddDecorativeVideoUrl = () => {
+    updateSettings((prevSettings) => {
+      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
+        ? prevSettings.decorativeVideo.urls
+        : [];
+
+      if (currentUrls.length >= 10) {
+        return prevSettings;
+      }
+
+      return {
+        ...prevSettings,
+        decorativeVideo: {
+          ...prevSettings.decorativeVideo,
+          urls: [...currentUrls, ""],
+        },
+      };
+    });
+  };
+
+  const handleRemoveDecorativeVideoUrl = (index) => {
+    updateSettings((prevSettings) => {
+      const currentUrls = Array.isArray(prevSettings.decorativeVideo?.urls)
+        ? [...prevSettings.decorativeVideo.urls]
+        : [];
+      currentUrls.splice(index, 1);
+
+      return {
+        ...prevSettings,
+        decorativeVideo: {
+          ...prevSettings.decorativeVideo,
+          urls: currentUrls,
+        },
+      };
+    });
   };
 
   const handleThemeModeChange = (value) => {
@@ -422,18 +476,18 @@ function SettingsButton() {
           <HiOutlineCog />
         </button>
       </DialogTrigger>
-      <DialogContent className="border-border/60 bg-background/98 p-0">
-        <Tabs defaultValue="appearance" orientation="vertical" className="grid min-h-[72vh] lg:grid-cols-[260px_1fr] gap-0">
+      <DialogContent className="border-border/60 bg-background/98 p-0 text-sm [&_[data-slot=card-header]]:p-4 [&_[data-slot=card-content]]:p-4 [&_[data-slot=card-content]]:pt-0 [&_[data-slot=card-title]]:text-base [&_[data-slot=tabs-trigger]]:px-2.5 [&_[data-slot=tabs-trigger]]:py-2 [&_[data-slot=tabs-trigger]]:text-xs [&_[data-slot=input]]:h-9 [&_[data-slot=input]]:text-xs [&_[data-slot=button]]:h-8 [&_[data-slot=button]]:px-3 [&_[data-slot=button]]:text-xs">
+        <Tabs defaultValue="appearance" orientation="vertical" className="grid min-h-[72vh] lg:grid-cols-[220px_1fr] gap-0">
           <div className="border-b border-border bg-sidebar text-sidebar-foreground lg:border-r lg:border-b-0">
-            <div className="p-6">
+            <div className="p-4">
               <DialogHeader>
-                <DialogTitle className="font-serif text-2xl">Workspace Settings</DialogTitle>
+                <DialogTitle className="font-serif text-xl">Workspace Settings</DialogTitle>
                 <DialogDescription>
                   Built on the new shadcn-style UI layer with live theme and palette preview.
                 </DialogDescription>
               </DialogHeader>
             </div>
-            <TabsList className="mx-4 mb-4 bg-transparent p-0">
+            <TabsList className="mx-3 mb-3 bg-transparent p-0">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -447,7 +501,7 @@ function SettingsButton() {
           </div>
 
           <div className="flex flex-col">
-            <div className="max-h-[72vh] overflow-y-auto p-6 md:p-8">
+            <div className="max-h-[72vh] overflow-y-auto p-4 md:p-5">
               <TabsContent value="appearance" className="mt-0 space-y-6">
                 <Card>
                   <CardHeader>
@@ -720,19 +774,44 @@ function SettingsButton() {
                   <CardHeader>
                     <CardTitle>Decorative Video</CardTitle>
                     <CardDescription>
-                      Use one shared looping MP4 scene for both video tiles. The frontend treats the tiles like two windows into the same moved and scaled video.
+                      Add up to 10 looping MP4 links. One is chosen at random on load, and both tiles look into the same shared scene.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <SettingField label="Video URL">
-                      <Input
-                        value={settingsState.decorativeVideo?.url ?? ""}
-                        placeholder="https://pixabay.com/videos/download/video-338904_medium.mp4"
-                        onChange={(event) =>
-                          handleDecorativeVideoChange("url", event.target.value || null)
-                        }
-                      />
-                    </SettingField>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Video URLs</p>
+                          <p className="text-xs text-muted-foreground">Leave blanks empty. The saved list is capped at 10.</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleAddDecorativeVideoUrl}
+                          disabled={(settingsState.decorativeVideo?.urls?.length || 0) >= 10}
+                        >
+                          Add link
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {(settingsState.decorativeVideo?.urls?.length
+                          ? settingsState.decorativeVideo.urls
+                          : [""]).map((url, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Input
+                              value={url}
+                              placeholder="https://example.com/video.mp4"
+                              onChange={(event) => handleDecorativeVideoUrlChange(index, event.target.value)}
+                            />
+                            {(settingsState.decorativeVideo?.urls?.length || 0) > 1 ? (
+                              <Button type="button" variant="outline" onClick={() => handleRemoveDecorativeVideoUrl(index)}>
+                                Remove
+                              </Button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
                       <p className="text-sm text-muted-foreground">
                         Move and scale the underlying shared video. The box positions stay fixed, but what you see through them changes together.

@@ -49,6 +49,26 @@ function createSettingsEnvelope(settings, overrides = {}) {
   };
 }
 
+function normalizeSettingsShape(settings) {
+  const mergedSettings = mergeSettings(defaultSettings, settings);
+  const decorativeVideo = mergedSettings.decorativeVideo || {};
+  let urls = Array.isArray(decorativeVideo.urls)
+    ? decorativeVideo.urls.filter((value) => typeof value === "string" && value.trim() !== "").map((value) => value.trim()).slice(0, 10)
+    : [];
+
+  if (urls.length === 0 && typeof decorativeVideo.url === "string" && decorativeVideo.url.trim() !== "") {
+    urls = [decorativeVideo.url.trim()];
+  }
+
+  return {
+    ...mergedSettings,
+    decorativeVideo: {
+      ...decorativeVideo,
+      urls,
+    },
+  };
+}
+
 function normalizeStoredRecord(record) {
   if (!record) {
     return null;
@@ -58,7 +78,7 @@ function normalizeStoredRecord(record) {
     return {
       schemaVersion: Number(record.schemaVersion) || SETTINGS_SCHEMA_VERSION,
       updatedAt: record.updatedAt || record.exportedAt || new Date().toISOString(),
-      settings: mergeSettings(defaultSettings, record.settings),
+      settings: normalizeSettingsShape(record.settings),
     };
   }
 
@@ -66,7 +86,7 @@ function normalizeStoredRecord(record) {
     return {
       schemaVersion: Number(record.schemaVersion) || SETTINGS_SCHEMA_VERSION,
       updatedAt: record.updatedAt || new Date().toISOString(),
-      settings: mergeSettings(defaultSettings, record.settings),
+      settings: normalizeSettingsShape(record.settings),
     };
   }
 
@@ -74,7 +94,7 @@ function normalizeStoredRecord(record) {
     return {
       schemaVersion: SETTINGS_SCHEMA_VERSION,
       updatedAt: new Date().toISOString(),
-      settings: mergeSettings(defaultSettings, record),
+      settings: normalizeSettingsShape(record),
     };
   }
 
@@ -93,7 +113,7 @@ function parseSettings(rawSettings) {
       return normalizedRecord.settings;
     }
 
-    return mergeSettings(defaultSettings, parsed);
+    return normalizeSettingsShape(parsed);
   } catch (_error) {
     return defaultSettings;
   }
@@ -166,7 +186,7 @@ async function writeSettingsToIndexedDb(settings) {
   const record = {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
-    settings: mergeSettings(defaultSettings, settings),
+    settings: normalizeSettingsShape(settings),
   };
 
   await new Promise((resolve, reject) => {
@@ -284,7 +304,7 @@ function normalizeImportPayload(rawText) {
   }
 
   const candidateSettings = isPlainObject(parsed.settings) ? parsed.settings : parsed;
-  const mergedSettings = mergeSettings(defaultSettings, candidateSettings);
+  const mergedSettings = normalizeSettingsShape(candidateSettings);
 
   return {
     settings: mergedSettings,
@@ -313,7 +333,7 @@ export function readSettings() {
 }
 
 export async function writeSettings(settings) {
-  const mergedSettings = mergeSettings(defaultSettings, settings);
+  const mergedSettings = normalizeSettingsShape(settings);
   writeSettingsToLocalStorage(mergedSettings);
   Cookies.remove(SETTINGS_COOKIE_KEY);
   const record = await writeSettingsToIndexedDb(mergedSettings);
