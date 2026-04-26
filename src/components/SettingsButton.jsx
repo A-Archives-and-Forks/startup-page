@@ -7,10 +7,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  IMAGE_FILTER_DEFAULTS,
+  IMAGE_FILTER_DEFINITIONS,
+} from "@/lib/image-filters";
 import { cn } from "@/lib/utils";
-import { readSettings, resetSettings, writeSettings } from "./readSettings";
+import {
+  exportSettingsBlob,
+  importSettingsFromFile,
+  readSettings,
+  resetSettings,
+  writeSettings,
+} from "./readSettings";
 
 const visibilityOptions = [
   { id: "videoTall", label: "Tall media tile" },
@@ -70,6 +81,24 @@ function SettingField({ label, description, children }) {
   );
 }
 
+function RangeControl({ label, value, min, max, step, onChange }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-sm text-foreground">{label}</Label>
+        <span className="text-xs font-medium text-muted-foreground">{Number(value).toFixed(step >= 1 ? 0 : 2)}</span>
+      </div>
+      <Slider
+        value={[Number(value)]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={(nextValue) => onChange(nextValue[0])}
+      />
+    </div>
+  );
+}
+
 function ChoiceButton({ selected, title, description, onClick }) {
   return (
     <button
@@ -93,6 +122,7 @@ function SettingsButton() {
   const { themeMode, setThemeMode, themePalette, setThemePalette } = useContext(ThemeContext);
   const [open, setOpen] = useState(false);
   const [settingsState, setSettingsState] = useState(savedSettings);
+  const fileInputRef = React.useRef(null);
 
   const openModal = () => {
     const freshSettings = readSettings();
@@ -144,6 +174,70 @@ function SettingsButton() {
   const handleThemePaletteChange = (value) => {
     handleUiChange("themePalette", value);
     setThemePalette(value);
+  };
+
+  const handleImageFilterToggle = (filterKey, checked) => {
+    updateSettings((prevSettings) => ({
+      ...prevSettings,
+      ui: {
+        ...prevSettings.ui,
+        imageEffects: {
+          enabledFilters: {
+            ...IMAGE_FILTER_DEFAULTS.enabledFilters,
+            ...prevSettings.ui?.imageEffects?.enabledFilters,
+            [filterKey]: checked,
+          },
+          filterSettings: {
+            ...IMAGE_FILTER_DEFAULTS.filterSettings,
+            ...prevSettings.ui?.imageEffects?.filterSettings,
+          },
+        },
+      },
+    }));
+  };
+
+  const handleImageFilterSettingChange = (filterKey, settingKey, value) => {
+    updateSettings((prevSettings) => ({
+      ...prevSettings,
+      ui: {
+        ...prevSettings.ui,
+        imageEffects: {
+          enabledFilters: {
+            ...IMAGE_FILTER_DEFAULTS.enabledFilters,
+            ...prevSettings.ui?.imageEffects?.enabledFilters,
+          },
+          filterSettings: {
+            ...IMAGE_FILTER_DEFAULTS.filterSettings,
+            ...prevSettings.ui?.imageEffects?.filterSettings,
+            [filterKey]: {
+              ...IMAGE_FILTER_DEFAULTS.filterSettings[filterKey],
+              ...prevSettings.ui?.imageEffects?.filterSettings?.[filterKey],
+              [settingKey]: value,
+            },
+          },
+        },
+      },
+    }));
+  };
+
+  const handleImageFilterPreset = (filterKey, preset) => {
+    updateSettings((prevSettings) => ({
+      ...prevSettings,
+      ui: {
+        ...prevSettings.ui,
+        imageEffects: {
+          enabledFilters: {
+            ...IMAGE_FILTER_DEFAULTS.enabledFilters,
+            ...prevSettings.ui?.imageEffects?.enabledFilters,
+          },
+          filterSettings: {
+            ...IMAGE_FILTER_DEFAULTS.filterSettings,
+            ...prevSettings.ui?.imageEffects?.filterSettings,
+            [filterKey]: { ...preset.params },
+          },
+        },
+      },
+    }));
   };
 
   const handleHiddenBoxChange = (boxId, checked) => {
@@ -212,25 +306,53 @@ function SettingsButton() {
     });
   };
 
-  const handleReset = () => {
-    const defaults = resetSettings();
+  const handleReset = async () => {
+    const defaults = await resetSettings();
     setSettingsState(defaults);
     setThemeMode(defaults.ui.themeMode);
     setThemePalette(defaults.ui.themePalette || "zen");
   };
 
-  const handleSave = () => {
-    writeSettings(settingsState);
+  const handleSave = async () => {
+    await writeSettings(settingsState);
     setThemeMode(settingsState.ui.themeMode);
     setThemePalette(settingsState.ui.themePalette || "zen");
     setOpen(false);
     window.location.reload();
   };
 
+  const handleExport = () => {
+    const blob = exportSettingsBlob(settingsState);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "startup-page-settings.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const importedSettings = await importSettingsFromFile(file);
+    setSettingsState(importedSettings);
+    setThemeMode(importedSettings.ui.themeMode);
+    setThemePalette(importedSettings.ui.themePalette || "zen");
+    event.target.value = "";
+  };
+
   const selectedThemeMode = settingsState.ui?.themeMode || themeMode;
   const selectedThemePalette = settingsState.ui?.themePalette || themePalette;
   const selectedGridDensity = settingsState.ui?.gridDensity || "comfortable";
   const selectedCardStyle = settingsState.ui?.cardStyle || "rounded";
+  const imageEffects = settingsState.ui?.imageEffects || IMAGE_FILTER_DEFAULTS;
 
   return (
     <Dialog open={open} onOpenChange={closeModal}>
@@ -364,6 +486,88 @@ function SettingsButton() {
                       checked={settingsState.ui?.showDecorativeMedia ?? true}
                       onCheckedChange={(checked) => handleUiChange("showDecorativeMedia", checked)}
                     />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Image Effects</CardTitle>
+                    <CardDescription>
+                      Enable one or more filters for photo tiles. When multiple filters are enabled, each image tile picks one at random.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {IMAGE_FILTER_DEFINITIONS.map((filter) => {
+                      const enabled = imageEffects.enabledFilters?.[filter.key] || false;
+                      const filterSettings = imageEffects.filterSettings?.[filter.key] || IMAGE_FILTER_DEFAULTS.filterSettings[filter.key];
+
+                      return (
+                        <div key={filter.key} className="rounded-xl border border-border p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="font-medium">{filter.label}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {enabled ? "Active and eligible for random image selection." : "Disabled."}
+                              </p>
+                            </div>
+                            <Switch
+                              checked={enabled}
+                              onCheckedChange={(checked) => handleImageFilterToggle(filter.key, checked)}
+                            />
+                          </div>
+
+                          {enabled ? (
+                            <div className="mt-4 space-y-4">
+                              <div className="flex flex-wrap gap-2">
+                                {filter.presets.map((preset) => (
+                                  <Button
+                                    key={preset.name}
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleImageFilterPreset(filter.key, preset)}
+                                  >
+                                    {preset.name}
+                                  </Button>
+                                ))}
+                              </div>
+                              <div className="grid gap-4 md:grid-cols-2">
+                                {filter.controls.map((control) => {
+                                  const controlValue = filterSettings[control.key];
+                                  if (control.type === "boolean") {
+                                    return (
+                                      <div key={control.key} className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                        <Label className="text-sm text-foreground">{control.label}</Label>
+                                        <Switch
+                                          checked={Boolean(controlValue)}
+                                          onCheckedChange={(checked) =>
+                                            handleImageFilterSettingChange(filter.key, control.key, checked)
+                                          }
+                                        />
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <RangeControl
+                                      key={control.key}
+                                      label={control.label}
+                                      value={Number(controlValue)}
+                                      min={control.min}
+                                      max={control.max}
+                                      step={control.step}
+                                      onChange={(value) =>
+                                        handleImageFilterSettingChange(filter.key, control.key, value)
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -501,6 +705,12 @@ function SettingsButton() {
                   Active preview: <span className="font-medium text-foreground">{selectedThemePalette}</span> in <span className="font-medium text-foreground">{selectedThemeMode}</span> mode
                 </p>
                 <div className="flex gap-3">
+                  <Button type="button" variant="outline" onClick={handleExport}>
+                    Export backup
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleImportClick}>
+                    Import backup
+                  </Button>
                   <Button type="button" variant="outline" onClick={handleReset}>
                     Reset
                   </Button>
@@ -510,6 +720,13 @@ function SettingsButton() {
                 </div>
               </div>
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={handleImport}
+            />
           </div>
         </Tabs>
       </DialogContent>

@@ -12,7 +12,11 @@ class Clock extends React.Component {
       date: new Date().toLocaleTimeString(),
       day: this.days[new Date().getDay()],
       month: this.months[new Date().getMonth()]
-    }
+    };
+    this.interval = null;
+  }
+
+  componentDidMount() {
     this.interval = setInterval(this.updateDate, 1000);
   }
     
