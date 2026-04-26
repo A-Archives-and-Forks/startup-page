@@ -14,6 +14,11 @@ import {
   IMAGE_FILTER_DEFAULTS,
   IMAGE_FILTER_DEFINITIONS,
 } from "@/lib/image-filters";
+import {
+  BUILT_IN_PALETTES,
+  getSwatchesFromCustomTheme,
+  parseCustomThemeCSS,
+} from "@/lib/theme-palettes";
 import { cn } from "@/lib/utils";
 import {
   createSettingsExportFilename,
@@ -47,26 +52,22 @@ const visibilityOptions = [
   { id: "unsplash6", label: "Photo tile 6" }
 ];
 
-const paletteOptions = [
-  {
-    value: "zen",
-    title: "Zen",
-    description: "Warm paper neutrals with quiet contrast.",
-    preview: "from-stone-200 via-amber-100 to-zinc-900"
-  },
-  {
-    value: "chalk",
-    title: "Chalk",
-    description: "Cool editorial surfaces with crisp navy ink.",
-    preview: "from-slate-100 via-indigo-100 to-slate-700"
-  },
-  {
-    value: "astrovista",
-    title: "Astrovista",
-    description: "Soft space-age neutrals with brighter highlights.",
-    preview: "from-slate-100 via-violet-100 to-orange-400"
-  }
-];
+function PaletteSwatchPreview({ swatches, mode }) {
+  const modeSwatches = mode === "dark" ? swatches.dark : swatches.light;
+  const keys = ["background", "card", "primary", "accent", "muted"];
+  return (
+    <div className="mb-4 flex h-20 items-center justify-center gap-2 rounded-lg border border-border/40 bg-muted/30">
+      {keys.map((key) => (
+        <div
+          key={key}
+          className="size-8 rounded-full border border-border/60 shadow-sm"
+          style={{ backgroundColor: modeSwatches[key] }}
+          title={key}
+        />
+      ))}
+    </div>
+  );
+}
 
 const navItems = [
   { value: "appearance", label: "Appearance", icon: HiOutlineSwatch },
@@ -122,11 +123,14 @@ function ChoiceButton({ selected, title, description, onClick }) {
 
 function SettingsButton() {
   const savedSettings = useMemo(() => readSettings(), []);
-  const { themeMode, setThemeMode, themePalette, setThemePalette } = useContext(ThemeContext);
+  const { theme, themeMode, setThemeMode, themePalette, setThemePalette, setCustomThemeVars } = useContext(ThemeContext);
   const [open, setOpen] = useState(false);
   const [settingsState, setSettingsState] = useState(savedSettings);
   const [storageState, setStorageState] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [customThemeName, setCustomThemeName] = useState("");
+  const [customThemeCSS, setCustomThemeCSS] = useState("");
+  const [customThemeError, setCustomThemeError] = useState("");
   const fileInputRef = React.useRef(null);
 
   const refreshStorageDiagnostics = React.useCallback(async () => {
@@ -279,9 +283,46 @@ function SettingsButton() {
     setThemeMode(value);
   };
 
-  const handleThemePaletteChange = (value) => {
+  const handleThemePaletteChange = (value, customVars) => {
     handleUiChange("themePalette", value);
     setThemePalette(value);
+    setCustomThemeVars(customVars || null);
+  };
+
+  const handleAddCustomTheme = () => {
+    setCustomThemeError("");
+    const name = customThemeName.trim();
+    if (!name) {
+      setCustomThemeError("Please enter a theme name.");
+      return;
+    }
+
+    try {
+      const parsed = parseCustomThemeCSS(customThemeCSS);
+      const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const newTheme = { id, name, light: parsed.light, dark: parsed.dark };
+
+      updateSettings((prev) => ({
+        ...prev,
+        customThemes: [...(prev.customThemes || []), newTheme],
+      }));
+
+      setCustomThemeName("");
+      setCustomThemeCSS("");
+    } catch (err) {
+      setCustomThemeError(err.message);
+    }
+  };
+
+  const handleRemoveCustomTheme = (themeId) => {
+    updateSettings((prev) => ({
+      ...prev,
+      customThemes: (prev.customThemes || []).filter((ct) => ct.id !== themeId),
+    }));
+
+    if (settingsState.ui?.themePalette === themeId) {
+      handleThemePaletteChange("zen", null);
+    }
   };
 
   const handleImageFilterToggle = (filterKey, checked) => {
@@ -419,6 +460,7 @@ function SettingsButton() {
     setSettingsState(resetResult.settings);
     setThemeMode(resetResult.settings.ui.themeMode);
     setThemePalette(resetResult.settings.ui.themePalette || "zen");
+    setCustomThemeVars(null);
     setStatusMessage("Settings reset and backup history refreshed.");
     await refreshStorageDiagnostics();
   };
@@ -540,7 +582,7 @@ function SettingsButton() {
                     <CardDescription>Switch the base visual language of the interface.</CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-3 lg:grid-cols-3">
-                    {paletteOptions.map((option) => (
+                    {BUILT_IN_PALETTES.map((option) => (
                       <button
                         key={option.value}
                         type="button"
@@ -552,11 +594,86 @@ function SettingsButton() {
                             : "border-border bg-card hover:bg-accent/50"
                         )}
                       >
-                        <div className={cn("mb-4 h-20 rounded-lg bg-gradient-to-br", option.preview)} />
+                        <PaletteSwatchPreview swatches={option.swatches} mode={theme} />
                         <div className="font-medium">{option.title}</div>
                         <div className="mt-1 text-sm text-muted-foreground">{option.description}</div>
                       </button>
                     ))}
+                    {(settingsState.customThemes || []).map((ct) => {
+                      const swatches = {
+                        light: getSwatchesFromCustomTheme(ct, "light"),
+                        dark: getSwatchesFromCustomTheme(ct, "dark"),
+                      };
+                      return (
+                        <button
+                          key={ct.id}
+                          type="button"
+                          onClick={() => handleThemePaletteChange(ct.id, { light: ct.light, dark: ct.dark })}
+                          className={cn(
+                            "rounded-xl border p-4 text-left transition",
+                            selectedThemePalette === ct.id
+                              ? "border-primary bg-accent shadow-sm"
+                              : "border-border bg-card hover:bg-accent/50"
+                          )}
+                        >
+                          <PaletteSwatchPreview swatches={swatches} mode={theme} />
+                          <div className="font-medium">{ct.name}</div>
+                          <div className="mt-1 text-sm text-muted-foreground">Custom theme</div>
+                        </button>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Custom Theme</CardTitle>
+                    <CardDescription>
+                      Paste CSS from a shadcn theme generator. Use <code>:root</code> for light and <code>.dark</code> for dark mode variables.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <SettingField label="Theme Name">
+                      <Input
+                        value={customThemeName}
+                        onChange={(e) => setCustomThemeName(e.target.value)}
+                        placeholder="My Custom Theme"
+                      />
+                    </SettingField>
+                    <SettingField label="CSS Variables">
+                      <textarea
+                        className="w-full rounded-lg border border-border bg-card p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        rows={8}
+                        value={customThemeCSS}
+                        onChange={(e) => setCustomThemeCSS(e.target.value)}
+                        placeholder={`:root {\n  --background: oklch(0.98 0.01 250);\n  --primary: oklch(0.55 0.2 260);\n  /* ... */\n}\n.dark {\n  --background: oklch(0.2 0.02 260);\n  /* ... */\n}`}
+                      />
+                    </SettingField>
+                    {customThemeError ? (
+                      <p className="text-xs text-destructive">{customThemeError}</p>
+                    ) : null}
+                    <Button type="button" onClick={handleAddCustomTheme}>
+                      Add Theme
+                    </Button>
+
+                    {(settingsState.customThemes || []).length > 0 ? (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs font-medium text-foreground">Saved Custom Themes</p>
+                        {(settingsState.customThemes || []).map((ct) => (
+                          <div key={ct.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
+                            <span className="text-sm">{ct.name}</span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveCustomTheme(ct.id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </CardContent>
                 </Card>
 

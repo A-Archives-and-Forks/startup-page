@@ -3,6 +3,7 @@ import React from "react";
 import { KBarProvider } from "kbar";
 
 import { readSettings } from '../components/readSettings';
+import { isBuiltInPalette } from '../lib/theme-palettes';
 import {
   DASHBOARD_LARGE_TILE,
   DASHBOARD_TALL_TILE,
@@ -163,8 +164,16 @@ export default function Index() {
     );
   };
 
+  const customThemes = settings.customThemes || [];
+  const activeCustomTheme = !isBuiltInPalette(ui.themePalette)
+    ? customThemes.find((ct) => ct.id === ui.themePalette)
+    : null;
+  const initialCustomThemeVars = activeCustomTheme
+    ? { light: activeCustomTheme.light, dark: activeCustomTheme.dark }
+    : null;
+
   return (
-    <ThemeProvider initialThemeMode={ui.themeMode} initialThemePalette={ui.themePalette}>
+    <ThemeProvider initialThemeMode={ui.themeMode} initialThemePalette={ui.themePalette} initialCustomThemeVars={initialCustomThemeVars}>
       <KBarProvider>
         <KBarWrapper>
       <section className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-10 pb-10 transition-colors">

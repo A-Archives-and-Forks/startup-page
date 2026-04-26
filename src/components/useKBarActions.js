@@ -1,6 +1,7 @@
 import React from "react";
 import { useRegisterActions } from "kbar";
 import { ThemeContext } from "./ThemeContext";
+import { BUILT_IN_PALETTES } from "@/lib/theme-palettes";
 import {
   readSettings,
   writeSettings,
@@ -31,10 +32,12 @@ const TILE_LABELS = {
 };
 
 export default function useKBarActions() {
-  const { setThemeMode, setThemePalette } = React.useContext(ThemeContext);
+  const { setThemeMode, setThemePalette, setCustomThemeVars } = React.useContext(ThemeContext);
 
   const actions = React.useMemo(() => {
     const list = [];
+    const settings = readSettings();
+    const customThemes = settings.customThemes || [];
 
     // --- Theme: Mode ---
     list.push({
@@ -59,27 +62,32 @@ export default function useKBarActions() {
       perform: () => setThemeMode("system"),
     });
 
-    // --- Theme: Palette ---
-    list.push({
-      id: "palette-zen",
-      name: "Zen Palette",
-      shortcut: [],
-      section: "Theme",
-      perform: () => setThemePalette("zen"),
+    // --- Theme: Palette (built-in) ---
+    BUILT_IN_PALETTES.forEach((palette) => {
+      list.push({
+        id: `palette-${palette.value}`,
+        name: `${palette.title} Palette`,
+        shortcut: [],
+        section: "Theme",
+        perform: () => {
+          setThemePalette(palette.value);
+          setCustomThemeVars(null);
+        },
+      });
     });
-    list.push({
-      id: "palette-chalk",
-      name: "Chalk Palette",
-      shortcut: [],
-      section: "Theme",
-      perform: () => setThemePalette("chalk"),
-    });
-    list.push({
-      id: "palette-astrovista",
-      name: "Astrovista Palette",
-      shortcut: [],
-      section: "Theme",
-      perform: () => setThemePalette("astrovista"),
+
+    // --- Theme: Palette (custom) ---
+    customThemes.forEach((ct) => {
+      list.push({
+        id: `palette-${ct.id}`,
+        name: `${ct.name} Palette`,
+        shortcut: [],
+        section: "Theme",
+        perform: () => {
+          setThemePalette(ct.id);
+          setCustomThemeVars({ light: ct.light, dark: ct.dark });
+        },
+      });
     });
 
     // --- Search ---
@@ -176,7 +184,7 @@ export default function useKBarActions() {
     });
 
     return list;
-  }, [setThemeMode, setThemePalette]);
+  }, [setThemeMode, setThemePalette, setCustomThemeVars]);
 
   useRegisterActions(actions, [actions]);
 }
