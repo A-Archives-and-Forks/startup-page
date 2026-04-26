@@ -268,14 +268,14 @@ class WeatherBox extends React.Component {
 
     return (
       <a
-        className="group flex h-full w-full flex-col justify-between overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top_right,_color-mix(in_oklab,var(--color-primary)_16%,transparent),transparent_35%),linear-gradient(160deg,color-mix(in_oklab,var(--color-card)_94%,black_6%),color-mix(in_oklab,var(--color-accent)_28%,var(--color-card)))] p-3 text-card-foreground"
+        className="group flex h-full w-full flex-col justify-between overflow-hidden rounded-[inherit] bg-[color:color-mix(in_oklab,var(--color-chart-1)_14%,var(--color-card))] p-3 text-card-foreground"
         href={interactive ? link : undefined}
         target={interactive ? "_blank" : undefined}
         rel={interactive ? "noreferrer" : undefined}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-card-foreground/65">
               Local Weather
             </div>
             <div
@@ -292,7 +292,7 @@ class WeatherBox extends React.Component {
 
         <div className="min-w-0 space-y-0.5">
           <p className="truncate text-sm font-medium text-foreground">{location}</p>
-          <p className="line-clamp-2 text-xs capitalize leading-snug text-muted-foreground">
+          <p className="line-clamp-2 text-xs capitalize leading-snug text-card-foreground/70">
             {desc}
           </p>
         </div>

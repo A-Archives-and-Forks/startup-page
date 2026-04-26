@@ -16,7 +16,9 @@ import {
 } from "@/lib/image-filters";
 import { cn } from "@/lib/utils";
 import {
+  createSettingsExportFilename,
   exportSettingsBlob,
+  getStorageDiagnostics,
   importSettingsFromFile,
   readSettings,
   resetSettings,
@@ -122,13 +124,25 @@ function SettingsButton() {
   const { themeMode, setThemeMode, themePalette, setThemePalette } = useContext(ThemeContext);
   const [open, setOpen] = useState(false);
   const [settingsState, setSettingsState] = useState(savedSettings);
+  const [storageState, setStorageState] = useState(null);
+  const [statusMessage, setStatusMessage] = useState("");
   const fileInputRef = React.useRef(null);
+
+  const refreshStorageDiagnostics = React.useCallback(async () => {
+    const nextDiagnostics = await getStorageDiagnostics();
+    setStorageState(nextDiagnostics);
+  }, []);
+
+  React.useEffect(() => {
+    void refreshStorageDiagnostics();
+  }, [refreshStorageDiagnostics]);
 
   const openModal = () => {
     const freshSettings = readSettings();
     setSettingsState(freshSettings);
     setThemeMode(freshSettings.ui.themeMode);
     setThemePalette(freshSettings.ui.themePalette || "zen");
+    void refreshStorageDiagnostics();
     setOpen(true);
   };
 
@@ -327,16 +341,20 @@ function SettingsButton() {
   };
 
   const handleReset = async () => {
-    const defaults = await resetSettings();
-    setSettingsState(defaults);
-    setThemeMode(defaults.ui.themeMode);
-    setThemePalette(defaults.ui.themePalette || "zen");
+    const resetResult = await resetSettings();
+    setSettingsState(resetResult.settings);
+    setThemeMode(resetResult.settings.ui.themeMode);
+    setThemePalette(resetResult.settings.ui.themePalette || "zen");
+    setStatusMessage("Settings reset and backup history refreshed.");
+    await refreshStorageDiagnostics();
   };
 
   const handleSave = async () => {
-    await writeSettings(settingsState);
+    const saveResult = await writeSettings(settingsState);
     setThemeMode(settingsState.ui.themeMode);
     setThemePalette(settingsState.ui.themePalette || "zen");
+    setStatusMessage(`Saved to IndexedDB at ${new Date(saveResult.updatedAt).toLocaleString()}.`);
+    await refreshStorageDiagnostics();
     setOpen(false);
     window.location.reload();
   };
@@ -346,9 +364,10 @@ function SettingsButton() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "startup-page-settings.json";
+    link.download = createSettingsExportFilename();
     link.click();
     URL.revokeObjectURL(url);
+    setStatusMessage("Backup exported with metadata and schema version.");
   };
 
   const handleImportClick = () => {
@@ -361,10 +380,21 @@ function SettingsButton() {
       return;
     }
 
-    const importedSettings = await importSettingsFromFile(file);
-    setSettingsState(importedSettings);
-    setThemeMode(importedSettings.ui.themeMode);
-    setThemePalette(importedSettings.ui.themePalette || "zen");
+    try {
+      const importedResult = await importSettingsFromFile(file);
+      setSettingsState(importedResult.settings);
+      setThemeMode(importedResult.settings.ui.themeMode);
+      setThemePalette(importedResult.settings.ui.themePalette || "zen");
+      setStatusMessage(
+        importedResult.metadata.exportedAt
+          ? `Backup imported successfully. Original export: ${new Date(importedResult.metadata.exportedAt).toLocaleString()}.`
+          : "Backup imported successfully."
+      );
+      await refreshStorageDiagnostics();
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Backup import failed.");
+    }
+
     event.target.value = "";
   };
 
@@ -758,9 +788,16 @@ function SettingsButton() {
 
             <div className="border-t border-border bg-card/60 px-6 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Active preview: <span className="font-medium text-foreground">{selectedThemePalette}</span> in <span className="font-medium text-foreground">{selectedThemeMode}</span> mode
-                </p>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>
+                    Active preview: <span className="font-medium text-foreground">{selectedThemePalette}</span> in <span className="font-medium text-foreground">{selectedThemeMode}</span> mode
+                  </p>
+                  <p>
+                    Storage: {storageState?.indexedDbAvailable ? "IndexedDB" : "Local mirror only"} · backups: {storageState?.backupCount ?? 0}
+                    {storageState?.lastSavedAt ? ` · last saved ${new Date(storageState.lastSavedAt).toLocaleString()}` : ""}
+                  </p>
+                  {statusMessage ? <p className="text-foreground">{statusMessage}</p> : null}
+                </div>
                 <div className="flex gap-3">
                   <Button type="button" variant="outline" onClick={handleExport}>
                     Export backup

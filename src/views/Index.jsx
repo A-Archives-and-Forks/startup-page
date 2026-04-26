@@ -39,8 +39,13 @@ export default function Index() {
 
           {/* row 1 */}
           {showDecorativeMedia && showBox("videoTall") && <div className={panel(`overflow-hidden col-span-1 row-span-2 h-80 w-36 ${surface}`)}>
-            <div className={panel("sticky overflow-hidden h-80 w-36")}>
+            <div className="sticky rounded-xl overflow-hidden h-80 w-36 border-0 dark:border-4 dark:border-off-white2">
               <video className="relative object-cover min-h-full max-w-xl -left-12" src={ desert } type="video/mp4" autoPlay muted loop/>
+            </div>
+          </div>}
+          {showDecorativeMedia && showBox("videoSmall") && <div className={panel(`overflow-hidden col-span-1 row-span-1 h-36 w-36 ${surface}`)}>
+            <div className="sticky rounded-xl overflow-hidden h-36 w-36 border-0 dark:border-4 dark:border-off-white2">
+              <video className="relative object-cover min-h-full max-w-sm right-48" src={ desert } type="video/mp4" autoPlay muted loop/>
             </div>
           </div>}
           {showBox("search") && <div className={panel(`col-span-2 h-36 w-80 ${strongSurface}`)}><SearchBox /></div>}
@@ -52,11 +57,11 @@ export default function Index() {
           {showBox("unsplash2") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox2 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
           {showBox("bookmark2") && <Bookmark title={ settings.bookmark[1].title } content={ settings.bookmark[1].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
           {showBox("featurePanel") && <div className={panel(`overflow-visible col-span-3 row-span-2 h-80 ${surface}`)}><FeaturePanel /></div>}
+          {showBox("unsplash3") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox3 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
 
           {/* row 3 */}
           {showBox("bookmark3") && <Bookmark title={ settings.bookmark[2].title } content={ settings.bookmark[2].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
           {showBox("solarGraph") && <div className={panel("bg-black col-span-2 row-span-2 border border-border/60 shadow-lg")}><SolarGraph /></div>}
-          {showBox("unsplash3") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox3 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
 
           {/* row 4 */}
           {showBox("bookmark4") && <Bookmark title={ settings.bookmark[3].title } content={ settings.bookmark[3].content } cardClass={panel(`col-span-1 h-36 w-36 overflow-y-auto ${strongSurface}`)} />}
@@ -68,7 +73,6 @@ export default function Index() {
           </div>}
           {showBox("unsplash5") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox5 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
           {showBox("clock") && <div className={panel(`col-span-1 h-36 w-36 ${mutedSurface}`)}><Clock /></div>}
-          {showBox("unsplash6") && <div className={panel(`col-span-1 h-36 w-36 ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox6 } cardClass={panel("relative overflow-hidden h-full bg-center bg-no-repeat")} /></div>}
         </div>
       </section>
     </ThemeProvider>
