@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
-import { readSettings } from '../readSettings';
-import { calculateSolarContext, getCurrentLst } from './solarMath';
+import { readSettings } from '@/lib/settings';
+import { calculateSolarContext, getCurrentLst, sunElevation } from './solarMath';
 import { renderSky } from './renderSky';
 import { createStarField, renderStars } from './renderStars';
 import { renderCurve } from './renderCurve';
@@ -8,8 +8,9 @@ import { renderSun } from './renderSun';
 import { renderHorizonGlow } from './renderHorizonGlow';
 import { renderMarkers } from './renderMarkers';
 
-const SWEEP_SPEED = 0.04;
+const SWEEP_SPEED = 0.075;
 const SWEEP_INTERVAL = 22; // ms per sweep step
+const TARGET_FRAME_MS = 1000 / 30; // idle at 30 fps; hover upgrades to 60
 
 export default function SolarGraph() {
   const canvasRef = useRef(null);
@@ -98,14 +99,16 @@ export default function SolarGraph() {
         }
       }, 60000);
 
-      // Main render loop
+      // Main render loop — 30 fps idle, 60 fps while hovering
       function frame(timestamp) {
-        const dt = (timestamp - state.lastTimestamp) / 1000;
+        state.animFrameId = requestAnimationFrame(frame);
+        const elapsed = timestamp - state.lastTimestamp;
+        const targetMs = state.hovering ? 1000 / 60 : TARGET_FRAME_MS;
+        if (elapsed < targetMs) return;
+        const dt = elapsed / 1000;
         state.lastTimestamp = timestamp;
         state.animationTime += dt;
-
         draw(ctx, canvas, state);
-        state.animFrameId = requestAnimationFrame(frame);
       }
 
       state.animFrameId = requestAnimationFrame(frame);
@@ -125,22 +128,25 @@ export default function SolarGraph() {
       // Use hovered time when hovering, otherwise real time
       const effectiveLst = state.hovering ? state.hoverHour : state.lst;
 
+      // Compute once — shared by stars, horizon glow, and sun renderers
+      const cachedElev = sunElevation(solar.lat, solar.lng, effectiveLst, solar.doy);
+
       ctx.clearRect(0, 0, w, h);
 
       // 1. Sky background
       renderSky(ctx, w, h);
 
       // 2. Stars
-      renderStars(ctx, w, h, state.stars, state.animationTime, effectiveLst, solar);
+      renderStars(ctx, w, h, state.stars, state.animationTime, effectiveLst, solar, cachedElev);
 
       // 3. Solar curve + horizon line
       const { horizonY } = renderCurve(ctx, w, h, solar);
 
       // 4. Horizon glow (sunrise/sunset effects)
-      renderHorizonGlow(ctx, w, h, effectiveLst, solar, horizonY);
+      renderHorizonGlow(ctx, w, h, effectiveLst, solar, horizonY, cachedElev);
 
       // 5. Sun
-      renderSun(ctx, w, h, effectiveLst, solar, horizonY);
+      renderSun(ctx, w, h, effectiveLst, solar, horizonY, cachedElev);
 
       // 6. Markers (only when hovering)
       if (state.hovering) {

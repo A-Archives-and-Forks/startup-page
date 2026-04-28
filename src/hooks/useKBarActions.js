@@ -1,6 +1,6 @@
 import React from "react";
 import { useRegisterActions } from "kbar";
-import { ThemeContext } from "./ThemeContext";
+import { ThemeContext } from "../components/ThemeContext";
 import { BUILT_IN_PALETTES } from "@/lib/theme-palettes";
 import {
   readSettings,
@@ -8,7 +8,7 @@ import {
   resetSettings,
   exportSettingsBlob,
   createSettingsExportFilename,
-} from "./readSettings";
+} from "@/lib/settings";
 
 const TILE_LABELS = {
   videoTall: "Tall Video",

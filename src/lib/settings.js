@@ -22,11 +22,9 @@ function mergeSettings(defaultValue, savedValue) {
       return defaultValue;
     }
 
-    const merged = defaultValue.map((item, index) => mergeSettings(item, savedValue[index]));
-    if (savedValue.length > defaultValue.length) {
-      return merged.concat(savedValue.slice(defaultValue.length));
-    }
-    return merged;
+    return savedValue.map((item, index) =>
+      index < defaultValue.length ? mergeSettings(defaultValue[index], item) : item
+    );
   }
 
   if (isPlainObject(defaultValue)) {

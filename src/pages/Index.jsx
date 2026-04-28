@@ -2,15 +2,12 @@
 import React from "react";
 import { KBarProvider } from "kbar";
 
-import { readSettings } from '../components/readSettings';
+import { readSettings } from '../lib/settings';
 import { isBuiltInPalette } from '../lib/theme-palettes';
 import {
   DASHBOARD_LARGE_TILE,
   DASHBOARD_TALL_TILE,
-  DASHBOARD_TALL_TILE_HEIGHT_PX,
   DASHBOARD_TILE,
-  DASHBOARD_TILE_HEIGHT_PX,
-  DASHBOARD_TILE_WIDTH_PX,
   DASHBOARD_WIDE_TILE,
   GRID_FEATURE,
   GRID_SINGLE,
@@ -31,10 +28,10 @@ import ThemeProvider from "../components/ThemeContext";
 import Bookmark from "../components/Bookmark";
 import SettingsButton from "../components/SettingsButton";
 import CommandPalette from "../components/CommandPalette";
-import useKBarActions from "../components/useKBarActions";
+import useKBarActions from "../hooks/useKBarActions";
 
 // assets
-import desert from "../assets/img/desert.mp4"
+import desert from "../assets/media/desert.mp4"
 
 function DecorativeVideoTile({
   className,
@@ -97,8 +94,17 @@ export default function Index() {
   const decorativeVideo = settings.decorativeVideo || {};
   const gapClass = ui.gridDensity === "compact" ? "gap-y-4 gap-x-4" : "gap-y-6 gap-x-6";
   const decorativeGap = ui.gridDensity === "compact" ? 16 : 24;
-  const gridColumnsClass = "xl:grid-cols-[repeat(7,9rem)] md:grid-cols-[repeat(5,9rem)] sm:grid-cols-[repeat(3,9rem)] xs:grid-cols-[repeat(2,9rem)]";
-  const gridRowsClass = "auto-rows-[9rem]";
+  const tilePx = (ui.tileSize || 9) * 16;
+  const tallTilePx = tilePx * 2 + decorativeGap;
+  // Minimum viewport width (px) for n columns to fit without overflow.
+  // Section has px-4 = 32px total horizontal padding.
+  const minWidthFor = (n) => n * tilePx + (n - 1) * decorativeGap + 32;
+  const gridCss = `
+    .dashboard-grid { grid-template-columns: repeat(2, ${tilePx}px); grid-auto-rows: ${tilePx}px; }
+    @media (min-width: ${minWidthFor(3)}px) { .dashboard-grid { grid-template-columns: repeat(3, ${tilePx}px); } }
+    @media (min-width: ${minWidthFor(5)}px) { .dashboard-grid { grid-template-columns: repeat(5, ${tilePx}px); } }
+    @media (min-width: ${minWidthFor(7)}px) { .dashboard-grid { grid-template-columns: repeat(7, ${tilePx}px); } }
+  `;
   const radiusClass = ui.cardStyle === "soft" ? "rounded-[2rem]" : ui.cardStyle === "sharp" ? "rounded-md" : "rounded-xl";
   const showDecorativeMedia = ui.showDecorativeMedia !== false;
   const decorativeVideoUrls = Array.isArray(decorativeVideo.urls)
@@ -119,15 +125,15 @@ export default function Index() {
   const strongSurface = "bg-primary text-primary-foreground border border-border/40 shadow-lg";
 
   const renderDecorativeVideo = (variant, className) => {
-    const sceneWidth = DASHBOARD_TILE_WIDTH_PX + decorativeGap + DASHBOARD_TILE_WIDTH_PX;
-    const sceneHeight = DASHBOARD_TALL_TILE_HEIGHT_PX;
+    const sceneWidth = tilePx + decorativeGap + tilePx;
+    const sceneHeight = tallTilePx;
     const viewports = {
-      tall: { x: 0, y: 0, width: DASHBOARD_TILE_WIDTH_PX, height: DASHBOARD_TALL_TILE_HEIGHT_PX },
+      tall: { x: 0, y: 0, width: tilePx, height: tallTilePx },
       small: {
-        x: DASHBOARD_TILE_WIDTH_PX + decorativeGap,
+        x: tilePx + decorativeGap,
         y: 0,
-        width: DASHBOARD_TILE_WIDTH_PX,
-        height: DASHBOARD_TILE_HEIGHT_PX,
+        width: tilePx,
+        height: tilePx,
       },
     };
     const viewport = viewports[variant];
@@ -177,7 +183,8 @@ export default function Index() {
       <KBarProvider>
         <KBarWrapper>
       <section className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 pt-10 pb-10 transition-colors">
-        <div className={`grid w-fit ${gridColumnsClass} ${gridRowsClass} ${gapClass} grid-flow-row-dense content-center justify-center`}>
+        <style>{gridCss}</style>
+        <div className={`dashboard-grid grid w-fit ${gapClass} grid-flow-row-dense content-center justify-center`}>
 
           {/* row 1 */}
           {showDecorativeMedia && showBox("videoTall") && <div className={panel(`overflow-hidden ${GRID_TALL} ${DASHBOARD_TALL_TILE} ${surface}`)}>

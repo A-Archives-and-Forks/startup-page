@@ -1,7 +1,7 @@
 import React from "react";
 import { HiPause, HiPlay, HiStop } from "react-icons/hi2";
 
-import { readSettings, writeSettings } from "./readSettings";
+import { readSettings, writeSettings } from "@/lib/settings";
 
 const PRESET_MINUTES = [5, 15, 25, 50];
 

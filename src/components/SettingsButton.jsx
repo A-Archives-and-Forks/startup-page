@@ -28,7 +28,7 @@ import {
   readSettings,
   resetSettings,
   writeSettings,
-} from "./readSettings";
+} from "@/lib/settings";
 
 const visibilityOptions = [
   { id: "videoTall", label: "Tall media tile" },
@@ -132,6 +132,7 @@ function SettingsButton() {
   const [customThemeCSS, setCustomThemeCSS] = useState("");
   const [customThemeError, setCustomThemeError] = useState("");
   const fileInputRef = React.useRef(null);
+  const [newTopicInputs, setNewTopicInputs] = useState({});
 
   const refreshStorageDiagnostics = React.useCallback(async () => {
     const nextDiagnostics = await getStorageDiagnostics();
@@ -402,16 +403,26 @@ function SettingsButton() {
     }));
   };
 
-  const handleUnsplashTopicsChange = (key, value) => {
+  const handleAddUnsplashTopic = (key) => {
+    const value = (newTopicInputs[key] || "").trim();
+    if (!value) return;
     updateSettings((prevSettings) => ({
       ...prevSettings,
       unsplash: {
         ...prevSettings.unsplash,
-        [key]: value
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)
-      }
+        [key]: [...(prevSettings.unsplash[key] || []), value],
+      },
+    }));
+    setNewTopicInputs((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const handleRemoveUnsplashTopic = (key, index) => {
+    updateSettings((prevSettings) => ({
+      ...prevSettings,
+      unsplash: {
+        ...prevSettings.unsplash,
+        [key]: prevSettings.unsplash[key].filter((_, i) => i !== index),
+      },
     }));
   };
 
@@ -835,13 +846,21 @@ function SettingsButton() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-dashed">
+                <Card>
                   <CardHeader>
-                    <CardTitle>Next Layout Phase</CardTitle>
-                    <CardDescription>
-                      The settings model now has a dedicated `layout` section. Dragging, resizing, add/remove, and custom box composition can sit here next without another data migration.
-                    </CardDescription>
+                    <CardTitle>Tile Size</CardTitle>
+                    <CardDescription>Scale how large each dashboard tile appears. Takes effect after saving.</CardDescription>
                   </CardHeader>
+                  <CardContent>
+                    <RangeControl
+                      label="Size (rem)"
+                      value={settingsState.ui?.tileSize ?? 9}
+                      min={7}
+                      max={14}
+                      step={1}
+                      onChange={(value) => handleUiChange("tileSize", value)}
+                    />
+                  </CardContent>
                 </Card>
               </TabsContent>
 
@@ -865,7 +884,14 @@ function SettingsButton() {
                       />
                     </SettingField>
                     <SettingField label="Units">
-                      <Input value={settingsState.units ?? ""} onChange={(event) => handleTopLevelChange("units", event.target.value)} />
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        value={settingsState.units ?? "imperial"}
+                        onChange={(event) => handleTopLevelChange("units", event.target.value)}
+                      >
+                        <option value="imperial">Imperial (°F, mph)</option>
+                        <option value="metric">Metric (°C, km/h)</option>
+                      </select>
                     </SettingField>
                     <SettingField label="OpenWeather Key">
                       <Input
@@ -873,16 +899,10 @@ function SettingsButton() {
                         onChange={(event) => handleTopLevelChange("openWeatherCredential", event.target.value || null)}
                       />
                     </SettingField>
-                    <SettingField label="Unsplash Key" className="md:col-span-2">
+                    <SettingField label="Unsplash Access Key" description="Use the Access Key, not the Secret Key." className="md:col-span-2">
                       <Input
                         value={settingsState.unsplashCredential ?? ""}
                         onChange={(event) => handleTopLevelChange("unsplashCredential", event.target.value || null)}
-                      />
-                    </SettingField>
-                    <SettingField label="ListenBrainz Username">
-                      <Input
-                        value={settingsState.listenBrainzUsername ?? ""}
-                        onChange={(event) => handleTopLevelChange("listenBrainzUsername", event.target.value || null)}
                       />
                     </SettingField>
                     <SettingField label="Default Timer Minutes">
@@ -1025,14 +1045,43 @@ function SettingsButton() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Unsplash Topics</CardTitle>
-                    <CardDescription>Comma-separated keywords for each rotating image tile.</CardDescription>
+                    <CardDescription>Keywords for each rotating image tile. Add or remove individual topics.</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2">
-                    {Object.keys(settingsState.unsplash).map((key) => (
-                      <SettingField key={key} label={key}>
-                        <Input value={settingsState.unsplash[key].join(", ")} onChange={(event) => handleUnsplashTopicsChange(key, event.target.value)} />
-                      </SettingField>
-                    ))}
+                  <CardContent className="space-y-6">
+                    {Object.keys(settingsState.unsplash).map((key, boxIndex) => {
+                      const topics = settingsState.unsplash[key] || [];
+                      const inputValue = newTopicInputs[key] || "";
+                      return (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-xs font-medium text-foreground">Photo tile {boxIndex + 1}</Label>
+                          <div className="flex min-h-10 flex-wrap gap-2 rounded-lg border border-border bg-muted/20 p-3">
+                            {topics.map((topic, i) => (
+                              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-xs text-accent-foreground">
+                                {topic}
+                                <button
+                                  type="button"
+                                  className="ml-1 leading-none opacity-60 hover:opacity-100"
+                                  onClick={() => handleRemoveUnsplashTopic(key, i)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              value={inputValue}
+                              placeholder="Add topic…"
+                              onChange={(e) => setNewTopicInputs((prev) => ({ ...prev, [key]: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddUnsplashTopic(key); } }}
+                            />
+                            <Button type="button" variant="outline" onClick={() => handleAddUnsplashTopic(key)}>
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </CardContent>
                 </Card>
 
