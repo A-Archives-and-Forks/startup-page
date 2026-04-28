@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { readSettings } from '../readSettings';
+import { readSettings } from '@/lib/settings';
 import { calculateSolarContext, getCurrentLst } from './solarMath';
 import { renderSky } from './renderSky';
 import { createStarField, renderStars } from './renderStars';

@@ -4,7 +4,7 @@ import FilteredImageShader from "./FilteredImageShader";
 import {
   getEnabledImageFilterKeys,
 } from "@/lib/image-filters";
-import { readSettings } from './readSettings';
+import { readSettings } from '@/lib/settings';
 const settings = readSettings();
 
 class Unsplash extends Component {

@@ -2,10 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Route, Routes} from "react-router-dom";
 import "./assets/styles/index.css";
-import { hydrateSettingsFromIndexedDb } from "./components/readSettings";
+import { hydrateSettingsFromIndexedDb } from "./lib/settings";
 
 // views without layouts
-import IndexPage from "./views/Index.jsx";
+import IndexPage from "./pages/Index.jsx";
 
 void hydrateSettingsFromIndexedDb().finally(() => {
   createRoot(document.getElementById("root")).render(

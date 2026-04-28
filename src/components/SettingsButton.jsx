@@ -28,7 +28,7 @@ import {
   readSettings,
   resetSettings,
   writeSettings,
-} from "./readSettings";
+} from "@/lib/settings";
 
 const visibilityOptions = [
   { id: "videoTall", label: "Tall media tile" },

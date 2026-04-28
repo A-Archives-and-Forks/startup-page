@@ -1,6 +1,6 @@
 import React from "react";
 
-import { readSettings } from './readSettings';
+import { readSettings } from '@/lib/settings';
 const settings = readSettings();
 
 

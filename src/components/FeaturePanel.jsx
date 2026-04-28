@@ -4,7 +4,7 @@ import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import HeadlinesHero from "./HeadlinesHero";
 import TimerBox from "./TimerBox";
 import Windy from "./Windy";
-import { readSettings, writeSettings } from "./readSettings";
+import { readSettings, writeSettings } from "@/lib/settings";
 
 const FEATURE_MODES = [
   { key: "headlines", label: "Headlines" },

@@ -1,7 +1,7 @@
 import React from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 
-import { readSettings } from "./readSettings";
+import { readSettings } from "@/lib/settings";
 
 const FALLBACK_IMAGE =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Google.png/640px-Google.png";

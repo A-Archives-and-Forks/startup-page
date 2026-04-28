@@ -17,7 +17,7 @@ import {
   WiTornado,
 } from "react-icons/wi";
 
-import { readSettings } from "./readSettings";
+import { readSettings } from "@/lib/settings";
 
 const WEATHER_ICONS = [
   { weather: "Clear", iconDay: <WiDaySunny />, iconNight: <WiMoonWaxingCrescent3 /> },

@@ -2,7 +2,7 @@
 import React from "react";
 import { KBarProvider } from "kbar";
 
-import { readSettings } from '../components/readSettings';
+import { readSettings } from '../lib/settings';
 import { isBuiltInPalette } from '../lib/theme-palettes';
 import {
   DASHBOARD_LARGE_TILE,
@@ -31,10 +31,10 @@ import ThemeProvider from "../components/ThemeContext";
 import Bookmark from "../components/Bookmark";
 import SettingsButton from "../components/SettingsButton";
 import CommandPalette from "../components/CommandPalette";
-import useKBarActions from "../components/useKBarActions";
+import useKBarActions from "../hooks/useKBarActions";
 
 // assets
-import desert from "../assets/img/desert.mp4"
+import desert from "../assets/media/desert.mp4"
 
 function DecorativeVideoTile({
   className,
