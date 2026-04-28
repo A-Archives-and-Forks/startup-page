@@ -44,8 +44,8 @@ function drawEllipseGlow(ctx, cx, cy, radius, scaleX, scaleY, stops) {
 
 // Render the sun with elliptical atmospheric glow that reshapes with elevation.
 // At horizon: wide & flat bloom. High sun: narrow & taller bloom.
-export function renderSun(ctx, width, height, lst, solar, horizonY) {
-  const elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
+export function renderSun(ctx, width, height, lst, solar, horizonY, elev) {
+  if (elev === undefined) elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
   const { x: sunX, y: sunY } = solarToCanvas(
     lst, elev, width, height, solar, horizonY
   );

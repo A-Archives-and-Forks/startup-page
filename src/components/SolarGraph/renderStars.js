@@ -9,7 +9,7 @@ const POLE_Y = -0.15;
 // Real sky: overwhelming majority of stars are dim sub-pixel pinpoints,
 // a few are moderately bright, very rare ones are prominent.
 // Uses a power-law magnitude distribution to mimic this.
-export function createStarField(count = 1600) {
+export function createStarField(count = 500) {
   const stars = [];
   const maxDist = 1.5;
   for (let i = 0; i < count; i++) {
@@ -134,8 +134,8 @@ function updateAndRenderShootingStars(ctx, width, height, dt, starOpacity) {
 }
 
 // Render stars with realistic brightness, subtle twinkle, and polar rotation
-export function renderStars(ctx, width, height, stars, time, lst, solar) {
-  const elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
+export function renderStars(ctx, width, height, stars, time, lst, solar, elev) {
+  if (elev === undefined) elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
 
   let starOpacity = 1;
   if (elev > -6) {
@@ -170,15 +170,6 @@ export function renderStars(ctx, width, height, stars, time, lst, solar) {
     const r = Math.round(190 + star.warmth * 60);
     const g = Math.round(195 + star.warmth * 40);
     const b = Math.round(220 - star.warmth * 50);
-
-    // Dim stars: simple filled pixel. Bright stars: subtle soft glow.
-    if (star.size > 1.0 && alpha > 0.3) {
-      // Faint glow halo for brighter stars
-      ctx.beginPath();
-      ctx.arc(x, y, star.size + 2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.08})`;
-      ctx.fill();
-    }
 
     ctx.beginPath();
     ctx.arc(x, y, star.size, 0, Math.PI * 2);

@@ -4,21 +4,27 @@ import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 import HeadlinesHero from "./HeadlinesHero";
 import TimerBox from "./TimerBox";
 import Windy from "./Windy";
+import Upsplash from "./Unsplash"
 import { readSettings, writeSettings } from "@/lib/settings";
 
 const FEATURE_MODES = [
   { key: "headlines", label: "Headlines" },
   { key: "windy", label: "Windy" },
-  { key: "timer", label: "Timer" }
+  { key: "timer", label: "Timer" },
+  { key: "unsplash", label: "Unsplash" }
 ];
 
-function FeatureContent({ mode }) {
+function FeatureContent({ mode, settings }) {
   if (mode === "windy") {
     return <Windy cardClass="h-full w-full overflow-hidden rounded-[inherit]" />;
   }
 
   if (mode === "timer") {
     return <TimerBox />;
+  }
+
+  if (mode === "unsplash") {
+    return <Upsplash search={settings.unsplash.unsplashBox6} cardClass="relative overflow-hidden h-full w-full bg-center bg-no-repeat rounded-[inherit]" />;
   }
 
   return <HeadlinesHero />;
@@ -49,7 +55,7 @@ export default function FeaturePanel() {
   return (
     <div className="relative h-full w-full overflow-visible rounded-[inherit]">
       <div className="h-full w-full overflow-hidden rounded-[inherit]">
-        <FeatureContent mode={activeMode} />
+        <FeatureContent mode={activeMode} settings={settings} />
       </div>
 
       <button

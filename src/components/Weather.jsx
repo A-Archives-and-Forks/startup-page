@@ -273,11 +273,8 @@ class WeatherBox extends React.Component {
         target={interactive ? "_blank" : undefined}
         rel={interactive ? "noreferrer" : undefined}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-card-foreground/65">
-              Local Weather
-            </div>
             <div
               title={desc}
               className="mt-1 truncate text-2xl font-semibold tracking-tight text-foreground"
@@ -285,13 +282,16 @@ class WeatherBox extends React.Component {
               {temperature}
             </div>
           </div>
-          <div className="shrink-0 text-4xl leading-none text-primary transition-transform group-hover:scale-105">
+
+          <div className="shrink-0 flex items-center justify-center text-5xl leading-none text-primary transition-transform group-hover:scale-105">
             {icon}
           </div>
         </div>
 
         <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-sm font-medium text-foreground">{location}</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {location}
+          </p>
           <p className="line-clamp-2 text-xs capitalize leading-snug text-card-foreground/70">
             {desc}
           </p>

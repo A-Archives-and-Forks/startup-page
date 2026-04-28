@@ -178,7 +178,7 @@ export default function HeadlinesHero() {
             <span style={{ color: "#ffffff" }}>{article.source}</span>
             <span style={{ color: "#ffffff" }}>{article.publishedLabel}</span>
           </div>
-          <h2 className="mt-3 max-w-3xl text-2xl font-semibold leading-tight !text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.82)] md:text-3xl" style={{ color: "#ffffff" }}>
+          <h2 className="mt-3 max-w-3xl text-base font-semibold leading-tight !text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.82)] md:text-lg" style={{ color: "#ffffff" }}>
             {article.title}
           </h2>
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">

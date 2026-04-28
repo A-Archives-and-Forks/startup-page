@@ -29,8 +29,8 @@ function drawEllipseGlow(ctx, cx, cy, radius, scaleX, scaleY, stops) {
 // At horizon (elev ≈ 0): flat, wide gaussian spread along horizon.
 // As sun rises: glow narrows horizontally, grows slightly taller.
 // Sunset reverses: starts narrow/tall, flattens as sun descends.
-export function renderHorizonGlow(ctx, width, height, lst, solar, horizonY) {
-  const elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
+export function renderHorizonGlow(ctx, width, height, lst, solar, horizonY, elev) {
+  if (elev === undefined) elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
   const { x: sunX } = solarToCanvas(lst, elev, width, height, solar, horizonY);
 
   // Active within ±15° of horizon
