@@ -587,7 +587,7 @@ function BookmarkView({
   };
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-background px-4 py-5 text-foreground sm:px-6">
+    <div className="min-h-screen w-full overflow-y-auto bg-background px-4 pb-5 pt-24 text-foreground sm:px-6">
       <div className="flex min-h-20 flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-5">
         <button
           type="button"
@@ -648,7 +648,7 @@ function BookmarkView({
         </DialogContent>
       </Dialog>
       {toast ? (
-        <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-card-foreground shadow-xl">
+        <div className="fixed right-4 top-24 z-50 max-w-sm rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-card-foreground shadow-xl">
           {toast}
         </div>
       ) : null}
@@ -1469,7 +1469,11 @@ export default function Index() {
         <KBarWrapper>
       <section className="relative min-h-screen overflow-hidden bg-background text-foreground transition-colors">
         <style>{gridCss}</style>
-        <div className={`flex min-h-screen items-center justify-center px-4 pt-10 pb-10 transition-all duration-500 ease-in-out ${bookmarksOpen ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100"}`}>
+        <div className="fixed right-5 top-5 z-40 flex items-center gap-4 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">
+          <Toggle />
+          <SettingsButton />
+        </div>
+        <div className={`flex min-h-screen items-center justify-center px-4 pb-10 pt-28 transition-all duration-500 ease-in-out ${bookmarksOpen ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100"}`}>
         <div className={`dashboard-grid grid w-fit ${gapClass} grid-flow-row-dense content-center justify-center`}>
 
           {/* row 1 */}
@@ -1498,18 +1502,16 @@ export default function Index() {
           {showBox("bookmark4") && <Bookmark title={ getBookmarkGroupForBox(3).title } content={ getBookmarkGroupForBox(3).content } onTitleClick={() => openBookmarkView(bookmarkBoxCategories[3] ?? 3)} cardClass={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`)} />}
           {showBox("bookmark5") && <Bookmark title={ getBookmarkGroupForBox(4).title } content={ getBookmarkGroupForBox(4).content } onTitleClick={() => openBookmarkView(bookmarkBoxCategories[4] ?? 4)} cardClass={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`)} />}
           {showBox("unsplash4") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox4 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
-          {showBox("themeTools") && <div className={panel(`h-full w-full flex items-center justify-center gap-1 ${GRID_SINGLE} ${DASHBOARD_TILE} ${strongSurface}`)}>
-              <Toggle />
+          {showBox("themeTools") && (
             <button
               type="button"
               onClick={() => openBookmarkView(null)}
-              className="text-4xl text-primary-foreground transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary-foreground/45"
+              className={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} ${strongSurface} flex items-center justify-center transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary-foreground/45`)}
               title="Open bookmark view"
             >
-              <HiBookmark />
+              <HiBookmark className="size-20 text-primary-foreground sm:size-24" />
             </button>
-            <SettingsButton />
-          </div>}
+          )}
           {showBox("unsplash5") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox5 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
           {showBox("clock") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}><Clock /></div>}
         </div>
