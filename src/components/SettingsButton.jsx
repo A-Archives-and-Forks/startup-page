@@ -456,6 +456,56 @@ function SettingsButton() {
     });
   };
 
+  const handleAddBookmarkCategory = () => {
+    updateSettings((prevSettings) => ({
+      ...prevSettings,
+      bookmark: [
+        ...(Array.isArray(prevSettings.bookmark) ? prevSettings.bookmark : []),
+        { title: `bookmark category ${(prevSettings.bookmark || []).length + 1}`, content: [] },
+      ],
+    }));
+  };
+
+  const handleRemoveBookmarkCategory = (index) => {
+    updateSettings((prevSettings) => {
+      const bookmark = (Array.isArray(prevSettings.bookmark) ? prevSettings.bookmark : []).filter(
+        (_item, currentIndex) => currentIndex !== index
+      );
+      const currentMapping = prevSettings.layout?.bookmarkBoxCategories || [0, 1, 2, 3, 4];
+      const bookmarkBoxCategories = currentMapping.map((categoryIndex, boxIndex) => {
+        if (categoryIndex === index) {
+          return Math.min(boxIndex, Math.max(bookmark.length - 1, 0));
+        }
+
+        return categoryIndex > index ? categoryIndex - 1 : categoryIndex;
+      });
+
+      return {
+        ...prevSettings,
+        bookmark,
+        layout: {
+          ...prevSettings.layout,
+          bookmarkBoxCategories,
+        },
+      };
+    });
+  };
+
+  const handleBookmarkBoxCategoryChange = (boxIndex, value) => {
+    updateSettings((prevSettings) => {
+      const bookmarkBoxCategories = [...(prevSettings.layout?.bookmarkBoxCategories || [0, 1, 2, 3, 4])];
+      bookmarkBoxCategories[boxIndex] = Number(value);
+
+      return {
+        ...prevSettings,
+        layout: {
+          ...prevSettings.layout,
+          bookmarkBoxCategories,
+        },
+      };
+    });
+  };
+
   const handleBookmarkItemChange = (index, subIndex, subKey, value) => {
     updateSettings((prevSettings) => {
       const bookmark = [...prevSettings.bookmark];
@@ -556,7 +606,7 @@ function SettingsButton() {
   return (
     <Dialog open={open} onOpenChange={closeModal}>
       <DialogTrigger asChild>
-        <button className="text-primary-foreground text-5xl cursor-pointer" onClick={openModal}>
+        <button className="text-primary-foreground text-4xl cursor-pointer" onClick={openModal}>
           <HiOutlineCog />
         </button>
       </DialogTrigger>
@@ -873,7 +923,7 @@ function SettingsButton() {
                     <CardTitle>Tile Size</CardTitle>
                     <CardDescription>Scale how large each dashboard tile appears. Takes effect after saving.</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-5">
                     <RangeControl
                       label="Size (rem)"
                       value={settingsState.ui?.tileSize ?? 9}
@@ -881,6 +931,14 @@ function SettingsButton() {
                       max={14}
                       step={1}
                       onChange={(value) => handleUiChange("tileSize", value)}
+                    />
+                    <RangeControl
+                      label="Bookmark pill size (rem)"
+                      value={settingsState.ui?.bookmarkPillSize ?? 3.25}
+                      min={2.5}
+                      max={5}
+                      step={0.25}
+                      onChange={(value) => handleUiChange("bookmarkPillSize", value)}
                     />
                   </CardContent>
                 </Card>
@@ -1158,14 +1216,49 @@ function SettingsButton() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Bookmarks</CardTitle>
-                    <CardDescription>Edit titles and links for each bookmark tile.</CardDescription>
+                    <CardDescription>Manage bookmark categories and choose which category each dashboard box shows.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    <div className="rounded-xl border border-border bg-muted/20 p-4">
+                      <p className="text-sm font-medium text-foreground">Dashboard box categories</p>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        {[0, 1, 2, 3, 4].map((boxIndex) => (
+                          <SettingField key={boxIndex} label={`Bookmark Box ${boxIndex + 1}`}>
+                            <select
+                              className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                              value={(settingsState.layout?.bookmarkBoxCategories || [0, 1, 2, 3, 4])[boxIndex] ?? 0}
+                              onChange={(event) => handleBookmarkBoxCategoryChange(boxIndex, event.target.value)}
+                            >
+                              {settingsState.bookmark.map((category, categoryIndex) => (
+                                <option key={`${category.title}-${categoryIndex}`} value={categoryIndex}>
+                                  {category.title || `Category ${categoryIndex + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                          </SettingField>
+                        ))}
+                      </div>
+                    </div>
+
                     {settingsState.bookmark.map((item, index) => (
                       <div key={index} className="rounded-xl border border-border bg-muted/25 p-4">
-                        <SettingField label={`Bookmark Box ${index + 1} Title`}>
-                          <Input value={item.title} onChange={(event) => handleBookmarkTitleChange(index, event.target.value)} />
-                        </SettingField>
+                        <div className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <SettingField label={`Category ${index + 1} Name`}>
+                              <Input value={item.title} onChange={(event) => handleBookmarkTitleChange(index, event.target.value)} />
+                            </SettingField>
+                          </div>
+                          {settingsState.bookmark.length > 1 ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRemoveBookmarkCategory(index)}
+                            >
+                              Remove category
+                            </Button>
+                          ) : null}
+                        </div>
                         <div className="mt-4 space-y-3">
                           {item.content.map((content, subIndex) => (
                             <div key={subIndex} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
@@ -1201,6 +1294,9 @@ function SettingsButton() {
                         </div>
                       </div>
                     ))}
+                    <Button type="button" variant="outline" onClick={handleAddBookmarkCategory}>
+                      Add category
+                    </Button>
                   </CardContent>
                 </Card>
               </TabsContent>

@@ -10,6 +10,7 @@
     "gridDensity": "comfortable",
     "cardStyle": "rounded",
     "tileSize": 9,
+    "bookmarkPillSize": 3.25,
     "showDecorativeMedia": true,
     "imageEffects": {
       "enabledFilters": {
@@ -186,7 +187,8 @@
     }
   },
   "layout": {
-    "hiddenBoxes": {}
+    "hiddenBoxes": {},
+    "bookmarkBoxCategories": [0, 1, 2, 3, 4]
   },
   "featurePanel": {
     "mode": "headlines",

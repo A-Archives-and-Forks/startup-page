@@ -6,16 +6,16 @@ const Toggle = () => {
   const { theme, setThemeMode } = React.useContext(ThemeContext);
 
   return (
-    <div className="transition duration-500 ease-in-out rounded-full p-2">
+    <div className="transition duration-500 ease-in-out rounded-full p-1">
       {theme === "dark" ? (
         <HiMoon
           onClick={() => setThemeMode(theme === "dark" ? "light" : "dark")}
-          className="text-primary-foreground text-5xl cursor-pointer"
+          className="text-primary-foreground text-4xl cursor-pointer"
         />
       ) : (
         <HiSun
           onClick={() => setThemeMode(theme === "dark" ? "light" : "dark")}
-          className="text-primary-foreground text-5xl cursor-pointer"
+          className="text-primary-foreground text-4xl cursor-pointer"
         />
       )}
     </div>
