@@ -46,17 +46,6 @@ export default function SolarGraph() {
       startAnimation();
     }
 
-    if (settings.latitude) {
-      initSolar(settings.latitude, settings.longitude);
-    } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => initSolar(position.coords.latitude, position.coords.longitude),
-        () => initSolar(40.7128, -74.006) // fallback: NYC
-      );
-    } else {
-      initSolar(40.7128, -74.006);
-    }
-
     // Resize handler
     function resize() {
       const container = canvas.parentElement;
@@ -115,6 +104,17 @@ export default function SolarGraph() {
 
       // Store for cleanup
       state._realTimeTimer = realTimeTimer;
+    }
+
+    if (settings.latitude) {
+      initSolar(settings.latitude, settings.longitude);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => initSolar(position.coords.latitude, position.coords.longitude),
+        () => initSolar(40.7128, -74.006) // fallback: NYC
+      );
+    } else {
+      initSolar(40.7128, -74.006);
     }
 
     function draw(ctx, canvas, state) {
