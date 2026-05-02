@@ -30,12 +30,122 @@ import Bookmark, { faviconUrl, isSelfHostedUrl, LocalServiceStatus } from "../co
 import SettingsButton from "../components/SettingsButton";
 import CommandPalette from "../components/CommandPalette";
 import useKBarActions from "../hooks/useKBarActions";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 // assets
 import desert from "../assets/media/desert.mp4"
 
 const STARTUP_PAGE_VIEW_KEY = "startup-page.active-view";
 const STARTUP_PAGE_BOOKMARK_CATEGORY_KEY = "startup-page.active-bookmark-category";
+
+const detectBookmarkBrowser = () => {
+  if (typeof navigator === "undefined") {
+    return "your browser";
+  }
+
+  const userAgent = navigator.userAgent || "";
+
+  if (/firefox/i.test(userAgent)) {
+    return "Firefox";
+  }
+
+  if (/chrome|crios/i.test(userAgent) && !/edg|opr|opera/i.test(userAgent)) {
+    return "Chrome";
+  }
+
+  if (/edg/i.test(userAgent)) {
+    return "Edge";
+  }
+
+  if (/opr|opera/i.test(userAgent)) {
+    return "Opera";
+  }
+
+  if (/safari/i.test(userAgent) && !/chrome|crios/i.test(userAgent)) {
+    return "Safari";
+  }
+
+  return "your browser";
+};
+
+const countBookmarksInGroup = (group) => (
+  (Array.isArray(group?.content) ? group.content.length : 0) +
+  (Array.isArray(group?.children) ? group.children.reduce((total, child) => total + countBookmarksInGroup(child), 0) : 0)
+);
+
+const getGroupCollapseKey = (path) => path.join(" / ");
+
+const parseBrowserBookmarksHtml = (html) => {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, "text/html");
+  const roots = [];
+  const uncategorized = { title: "Uncategorized", content: [], children: [] };
+
+  const getDirectBookmarkLinks = (node) => (
+    Array.from(node.children)
+      .filter((child) => child.tagName === "DT")
+      .map((child) => Array.from(child.children).find((grandchild) => grandchild.tagName === "A"))
+      .filter(Boolean)
+      .map((anchor) => ({
+        name: (anchor.textContent || anchor.href || "Bookmark").trim(),
+        url: anchor.getAttribute("href") || anchor.href,
+      }))
+      .filter((bookmark) => bookmark.url)
+  );
+
+  const parseFolder = (heading) => {
+    const folder = {
+      title: (heading.textContent || "Imported Folder").trim(),
+      content: [],
+      children: [],
+    };
+    const dl = heading.parentElement?.nextElementSibling?.tagName === "DL"
+      ? heading.parentElement.nextElementSibling
+      : heading.nextElementSibling?.tagName === "DL"
+        ? heading.nextElementSibling
+        : null;
+
+    if (!dl) {
+      return folder;
+    }
+
+    folder.content = getDirectBookmarkLinks(dl);
+    Array.from(dl.children)
+      .filter((child) => child.tagName === "DT")
+      .forEach((child) => {
+        const childHeading = Array.from(child.children).find((grandchild) => grandchild.tagName === "H3");
+
+        if (childHeading) {
+          folder.children.push(parseFolder(childHeading));
+        }
+      });
+
+    return folder;
+  };
+
+  const rootDl = document.querySelector("dl");
+
+  if (!rootDl) {
+    return [];
+  }
+
+  uncategorized.content = getDirectBookmarkLinks(rootDl);
+  Array.from(rootDl.children)
+    .filter((child) => child.tagName === "DT")
+    .forEach((child) => {
+      const heading = Array.from(child.children).find((grandchild) => grandchild.tagName === "H3");
+
+      if (heading) {
+        roots.push(parseFolder(heading));
+      }
+    });
+
+  if (uncategorized.content.length) {
+    roots.unshift(uncategorized);
+  }
+
+  return roots.filter((group) => countBookmarksInGroup(group) > 0);
+};
 
 function DecorativeVideoTile({
   className,
@@ -104,8 +214,11 @@ function BookmarkView({
   onMoveBookmark,
   onReorderCategory,
   onReorderBookmark,
+  onImportBookmarks,
   pillSize = 3.25,
 }) {
+  const fileInputRef = React.useRef(null);
+  const detectedBrowser = React.useMemo(() => detectBookmarkBrowser(), []);
   const [addOpen, setAddOpen] = React.useState(false);
   const [categoryOpen, setCategoryOpen] = React.useState(false);
   const [editingBookmark, setEditingBookmark] = React.useState(null);
@@ -114,6 +227,10 @@ function BookmarkView({
   const [collapsedCategories, setCollapsedCategories] = React.useState(() => new Set());
   const [draggedItem, setDraggedItem] = React.useState(null);
   const [dragOverItem, setDragOverItem] = React.useState(null);
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [importError, setImportError] = React.useState("");
+  const [draggingImport, setDraggingImport] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
   const [draft, setDraft] = React.useState({
     categoryIndex: activeCategoryIndex ?? 0,
     name: "",
@@ -126,6 +243,15 @@ function BookmarkView({
       categoryIndex: activeCategoryIndex ?? prev.categoryIndex ?? 0,
     }));
   }, [activeCategoryIndex]);
+
+  React.useEffect(() => {
+    if (!toast) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setToast(null), 3600);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   const orderedBookmarks = React.useMemo(() => {
     const active = bookmarks[activeCategoryIndex];
@@ -267,6 +393,55 @@ function BookmarkView({
     setAddOpen((open) => !open);
   };
 
+  const showToast = (message) => {
+    setToast(message);
+  };
+
+  const openImportModal = () => {
+    setImportError("");
+    setImportOpen(true);
+  };
+
+  const importBookmarkFile = async (file) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const html = await file.text();
+      const importedGroups = parseBrowserBookmarksHtml(html);
+
+      if (!importedGroups.length) {
+        const message = "No bookmarks were found in that export file. Use your browser's HTML bookmark export.";
+        setImportError(message);
+        showToast(message);
+        return;
+      }
+
+      await onImportBookmarks(importedGroups);
+      setImportOpen(false);
+      setImportError("");
+      showToast(`Imported ${importedGroups.reduce((total, group) => total + countBookmarksInGroup(group), 0)} bookmarks.`);
+    } catch (_error) {
+      const message = "Could not import that bookmarks file. Try an HTML bookmarks export from your browser.";
+      setImportError(message);
+      showToast(message);
+    }
+  };
+
+  const handleImportFile = async (event) => {
+    const [file] = Array.from(event.target.files || []);
+    event.target.value = "";
+    await importBookmarkFile(file);
+  };
+
+  const handleImportDrop = async (event) => {
+    event.preventDefault();
+    setDraggingImport(false);
+    const [file] = Array.from(event.dataTransfer.files || []);
+    await importBookmarkFile(file);
+  };
+
   const handleCategorySubmit = async (event) => {
     event.preventDefault();
     const title = categoryDraft.trim();
@@ -332,9 +507,88 @@ function BookmarkView({
     height: `${Math.max(22, pillHeight * 0.42)}px`,
   };
 
+  const renderNestedGroup = (group, path, depth = 1) => {
+    const content = Array.isArray(group.content) ? group.content : [];
+    const children = Array.isArray(group.children) ? group.children : [];
+    const collapseKey = getGroupCollapseKey(path);
+    const isCollapsed = collapsedCategories.has(collapseKey);
+
+    return (
+      <React.Fragment key={collapseKey}>
+        <span className="relative inline-flex" style={{ marginLeft: `${Math.min(depth * 18, 72)}px` }}>
+          <button
+            type="button"
+            onClick={() => toggleCategoryCollapsed(collapseKey)}
+            className="inline-flex items-center justify-between gap-2 rounded-full bg-primary/80 font-medium text-primary-foreground shadow-lg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring"
+            style={pillStyle}
+            title={`${isCollapsed ? "Expand" : "Collapse"} ${group.title}`}
+            aria-expanded={!isCollapsed}
+          >
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <span
+                className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/25 text-primary-foreground"
+                style={{
+                  width: `${Math.max(20, iconSize * 1.05)}px`,
+                  height: `${Math.max(20, iconSize * 1.05)}px`,
+                }}
+              >
+                {isCollapsed ? (
+                  <HiPlus style={{ width: `${Math.max(12, iconSize * 0.62)}px`, height: `${Math.max(12, iconSize * 0.62)}px` }} />
+                ) : (
+                  <HiMinus style={{ width: `${Math.max(12, iconSize * 0.62)}px`, height: `${Math.max(12, iconSize * 0.62)}px` }} />
+                )}
+              </span>
+              <span className="block truncate">{group.title}</span>
+            </span>
+            <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/20 px-2 py-0.5 text-[0.72em]">
+              {countBookmarksInGroup(group)}
+            </span>
+          </button>
+        </span>
+
+        {!isCollapsed && content.map(({ name, url }, index) => {
+          const iconUrl = faviconUrl(url);
+          const selfHosted = isSelfHostedUrl(url);
+
+          return (
+            <a
+              key={`${collapseKey}-${url}-${index}`}
+              href={url}
+              className="inline-flex items-center rounded-full bg-card text-card-foreground shadow-lg transition hover:bg-accent hover:text-accent-foreground"
+              style={{ ...bookmarkPillStyle, marginLeft: `${Math.min(depth * 18, 72)}px` }}
+              title={url}
+            >
+              <span
+                className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/65"
+                style={iconWrapStyle}
+              >
+                {selfHosted ? (
+                  <LocalServiceStatus url={url} className="size-4" />
+                ) : iconUrl ? (
+                  <img
+                    src={iconUrl}
+                    alt=""
+                    className="rounded-sm object-contain"
+                    style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+                    onError={(imgEvent) => { imgEvent.currentTarget.style.display = "none"; }}
+                  />
+                ) : (
+                  <HiArrowTopRightOnSquare className="opacity-65" style={{ width: `${iconSize}px`, height: `${iconSize}px` }} />
+                )}
+              </span>
+              <span className="truncate font-medium">{name}</span>
+            </a>
+          );
+        })}
+
+        {!isCollapsed && children.map((child) => renderNestedGroup(child, [...path, child.title], depth + 1))}
+      </React.Fragment>
+    );
+  };
+
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-background px-4 py-5 text-foreground">
-      <div className="flex h-20 items-start justify-between border-b border-border/40">
+    <div className="min-h-screen w-full overflow-y-auto bg-background px-4 py-5 text-foreground sm:px-6">
+      <div className="flex min-h-20 flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-5">
         <button
           type="button"
           onClick={onBack}
@@ -343,11 +597,66 @@ function BookmarkView({
         >
           <HiArrowLeft className="size-5" />
         </button>
+        <button
+          type="button"
+          onClick={openImportModal}
+          className="inline-flex h-12 items-center justify-center rounded-full bg-card px-5 text-sm font-medium text-card-foreground shadow-lg transition hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          title="Import browser bookmarks export"
+        >
+          Import Bookmarks
+        </button>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".html,.htm,text/html"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-xl gap-0 border-border/60 bg-background/98 p-6 pr-14 text-foreground sm:p-7 sm:pr-16">
+          <DialogHeader className="pr-2">
+            <DialogTitle className="font-serif text-xl">Import Bookmarks</DialogTitle>
+            <DialogDescription className="leading-6">
+              Select an HTML bookmarks export from {detectedBrowser}. Chrome, Firefox, Edge, Safari, Opera, and other Netscape-format exports are supported.
+            </DialogDescription>
+          </DialogHeader>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDraggingImport(true);
+            }}
+            onDragLeave={() => setDraggingImport(false)}
+            onDrop={handleImportDrop}
+            className={`mt-5 flex min-h-48 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition focus:outline-none focus:ring-2 focus:ring-ring ${
+              draggingImport
+                ? "border-primary bg-primary/10"
+                : "border-border bg-card hover:bg-accent"
+            }`}
+          >
+            <span className="text-base font-medium text-foreground">Drop bookmarks HTML here</span>
+            <span className="mt-2 text-sm text-muted-foreground">or click to open your file explorer</span>
+            <span className="mt-4 text-xs text-muted-foreground">Folders become categories. Subfolders become nested subcategories.</span>
+          </button>
+          {importError ? (
+            <div className="mt-5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {importError}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      {toast ? (
+        <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-card-foreground shadow-xl">
+          {toast}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3 pt-5">
         {orderedBookmarks.map((group) => {
           const content = Array.isArray(group.content) ? group.content : [];
+          const children = Array.isArray(group.children) ? group.children : [];
           const isCollapsed = collapsedCategories.has(group.title);
 
           return (
@@ -400,7 +709,7 @@ function BookmarkView({
                     <span className="block truncate">{group.title}</span>
                   </span>
                   <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/20 px-2 py-0.5 text-[0.72em]">
-                    {content.length}
+                    {countBookmarksInGroup(group)}
                   </span>
                 </button>
                 <button
@@ -558,6 +867,9 @@ function BookmarkView({
                   </span>
                 );
               })}
+              {!isCollapsed && children.map((child) =>
+                renderNestedGroup(child, [group.title, child.title])
+              )}
             </React.Fragment>
           );
         })}
@@ -762,6 +1074,19 @@ export default function Index() {
       : `${isSelfHostedUrl(trimmedUrl) ? "http" : "https"}://${trimmedUrl}`;
   };
 
+  const normalizeImportedBookmarkGroup = (group) => ({
+    title: group.title || "Imported",
+    content: (Array.isArray(group.content) ? group.content : [])
+      .filter((bookmark) => bookmark?.name && bookmark?.url)
+      .map((bookmark) => ({
+        name: bookmark.name,
+        url: normalizeBookmarkUrl(bookmark.url),
+      })),
+    children: (Array.isArray(group.children) ? group.children : [])
+      .map(normalizeImportedBookmarkGroup)
+      .filter((child) => countBookmarksInGroup(child) > 0),
+  });
+
   const persistSettings = async (nextSettings) => {
     latestSettingsRef.current = nextSettings;
     setSettingsState(nextSettings);
@@ -846,6 +1171,27 @@ export default function Index() {
 
     updateActiveBookmarkCategory(currentBookmarkGroups.length);
     await persistSettings(nextSettings);
+  };
+
+  const handleImportBookmarks = async (importedGroups) => {
+    const currentSettings = latestSettingsRef.current;
+    const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
+    const normalizedGroups = importedGroups
+      .map(normalizeImportedBookmarkGroup)
+      .filter((group) => countBookmarksInGroup(group) > 0);
+
+    if (!normalizedGroups.length) {
+      return;
+    }
+
+    updateActiveBookmarkCategory(currentBookmarkGroups.length);
+    await persistSettings({
+      ...currentSettings,
+      bookmark: [
+        ...currentBookmarkGroups,
+        ...normalizedGroups,
+      ],
+    });
   };
 
   const handleRenameBookmarkCategory = async (categoryIndex, title) => {
@@ -1183,6 +1529,7 @@ export default function Index() {
             onMoveBookmark={handleMoveBookmark}
             onReorderCategory={handleReorderBookmarkCategory}
             onReorderBookmark={handleReorderBookmark}
+            onImportBookmarks={handleImportBookmarks}
             pillSize={ui.bookmarkPillSize}
           />
         </div>
