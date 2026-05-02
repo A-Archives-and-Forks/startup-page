@@ -39,7 +39,7 @@ const visibilityOptions = [
   { id: "featurePanel", label: "Feature panel" },
   { id: "solarGraph", label: "Solar graph" },
   { id: "clock", label: "Clock" },
-  { id: "themeTools", label: "Theme and settings tile" },
+  { id: "themeTools", label: "Bookmark view tile" },
   { id: "bookmark1", label: "Bookmark box 1" },
   { id: "bookmark2", label: "Bookmark box 2" },
   { id: "bookmark3", label: "Bookmark box 3" },
@@ -606,7 +606,7 @@ function SettingsButton() {
   return (
     <Dialog open={open} onOpenChange={closeModal}>
       <DialogTrigger asChild>
-        <button className="text-primary-foreground text-4xl cursor-pointer" onClick={openModal}>
+        <button className="text-current text-4xl cursor-pointer" onClick={openModal}>
           <HiOutlineCog />
         </button>
       </DialogTrigger>
