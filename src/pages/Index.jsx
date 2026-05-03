@@ -68,21 +68,61 @@ const detectBookmarkBrowser = () => {
   return "your browser";
 };
 
-const countBookmarksInGroup = (group) => (
-  (Array.isArray(group?.content) ? group.content.length : 0) +
-  (Array.isArray(group?.children) ? group.children.reduce((total, child) => total + countBookmarksInGroup(child), 0) : 0)
-);
+function countBookmarksInGroup(group) {
+  return (
+    (Array.isArray(group?.content) ? group.content.length : 0) +
+    (Array.isArray(group?.children) ? group.children.reduce((total, child) => total + countBookmarksInGroup(child), 0) : 0)
+  );
+}
 
 const getGroupCollapseKey = (path) => path.join(" / ");
 
-const parseBrowserBookmarksHtml = (html) => {
+function escapeBookmarkHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function createBookmarksExportHtml(groups) {
+  function renderGroup(group, depth = 1) {
+    const indent = "    ".repeat(depth);
+    const childIndent = "    ".repeat(depth + 1);
+    const content = Array.isArray(group.content) ? group.content : [];
+    const children = Array.isArray(group.children) ? group.children : [];
+
+    return [
+      `${indent}<DT><H3>${escapeBookmarkHtml(group.title || "Bookmarks")}</H3>`,
+      `${indent}<DL><p>`,
+      ...content.map((bookmark) =>
+        `${childIndent}<DT><A HREF="${escapeBookmarkHtml(bookmark.url)}">${escapeBookmarkHtml(bookmark.name || bookmark.url)}</A>`
+      ),
+      ...children.map((child) => renderGroup(child, depth + 1)),
+      `${indent}</DL><p>`,
+    ].join("\n");
+  }
+
+  return [
+    "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+    '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+    "<TITLE>Bookmarks</TITLE>",
+    "<H1>Bookmarks</H1>",
+    "<DL><p>",
+    ...groups.map((group) => renderGroup(group)),
+    "</DL><p>",
+    "",
+  ].join("\n");
+}
+
+function parseBrowserBookmarksHtml(html) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, "text/html");
   const roots = [];
   const uncategorized = { title: "Uncategorized", content: [], children: [] };
 
-  const getDirectBookmarkLinks = (node) => (
-    Array.from(node.children)
+  function getDirectBookmarkLinks(node) {
+    return Array.from(node.children)
       .filter((child) => child.tagName === "DT")
       .map((child) => Array.from(child.children).find((grandchild) => grandchild.tagName === "A"))
       .filter(Boolean)
@@ -90,10 +130,10 @@ const parseBrowserBookmarksHtml = (html) => {
         name: (anchor.textContent || anchor.href || "Bookmark").trim(),
         url: anchor.getAttribute("href") || anchor.href,
       }))
-      .filter((bookmark) => bookmark.url)
-  );
+      .filter((bookmark) => bookmark.url);
+  }
 
-  const parseFolder = (heading) => {
+  function parseFolder(heading) {
     const folder = {
       title: (heading.textContent || "Imported Folder").trim(),
       content: [],
@@ -121,7 +161,7 @@ const parseBrowserBookmarksHtml = (html) => {
       });
 
     return folder;
-  };
+  }
 
   const rootDl = document.querySelector("dl");
 
@@ -145,7 +185,7 @@ const parseBrowserBookmarksHtml = (html) => {
   }
 
   return roots.filter((group) => countBookmarksInGroup(group) > 0);
-};
+}
 
 function DecorativeVideoTile({
   className,
@@ -215,6 +255,7 @@ function BookmarkView({
   onReorderCategory,
   onReorderBookmark,
   onImportBookmarks,
+  onExportBookmarks,
   pillSize = 3.25,
 }) {
   const fileInputRef = React.useRef(null);
@@ -224,6 +265,7 @@ function BookmarkView({
   const [editingBookmark, setEditingBookmark] = React.useState(null);
   const [editingCategory, setEditingCategory] = React.useState(null);
   const [categoryDraft, setCategoryDraft] = React.useState("");
+  const [categoryParentPath, setCategoryParentPath] = React.useState("");
   const [collapsedCategories, setCollapsedCategories] = React.useState(() => new Set());
   const [draggedItem, setDraggedItem] = React.useState(null);
   const [dragOverItem, setDragOverItem] = React.useState(null);
@@ -232,7 +274,7 @@ function BookmarkView({
   const [draggingImport, setDraggingImport] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [draft, setDraft] = React.useState({
-    categoryIndex: activeCategoryIndex ?? 0,
+    categoryPath: String(activeCategoryIndex ?? 0),
     name: "",
     url: "",
   });
@@ -240,7 +282,7 @@ function BookmarkView({
   React.useEffect(() => {
     setDraft((prev) => ({
       ...prev,
-      categoryIndex: activeCategoryIndex ?? prev.categoryIndex ?? 0,
+      categoryPath: String(activeCategoryIndex ?? prev.categoryPath ?? 0),
     }));
   }, [activeCategoryIndex]);
 
@@ -268,6 +310,28 @@ function BookmarkView({
     ];
   }, [bookmarks, activeCategoryIndex]);
 
+  const serializeCategoryPath = (path) => (Array.isArray(path) ? path : [path]).join(".");
+  const parseCategoryPath = (value) => String(value).split(".").map((part) => Number(part)).filter((part) => Number.isInteger(part));
+  const categoryPathsMatch = (left, right) => serializeCategoryPath(left) === serializeCategoryPath(right);
+  const getCategoryPillClass = (isCollapsed, nested = false) => (
+    isCollapsed
+      ? "bg-amber-400 font-semibold text-slate-950 ring-2 ring-amber-100/80"
+      : nested
+        ? "bg-cyan-400 font-semibold text-slate-950 ring-2 ring-cyan-100/80"
+        : "bg-primary font-medium text-primary-foreground"
+  );
+  const getCategoryOptions = (groups, parentPath = [], depth = 0) => (
+    groups.flatMap((group, index) => {
+      const path = [...parentPath, index];
+      const children = Array.isArray(group.children) ? group.children : [];
+      return [
+        { label: `${"  ".repeat(depth)}${group.title}`, value: serializeCategoryPath(path) },
+        ...getCategoryOptions(children, path, depth + 1),
+      ];
+    })
+  );
+  const categoryOptions = React.useMemo(() => getCategoryOptions(bookmarks), [bookmarks]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const name = draft.name.trim();
@@ -278,43 +342,44 @@ function BookmarkView({
     }
 
     if (editingBookmark) {
-      await onUpdateBookmark(editingBookmark.categoryIndex, editingBookmark.bookmarkIndex, { name, url });
+      await onUpdateBookmark(editingBookmark.categoryPath, editingBookmark.bookmarkIndex, { name, url });
       setEditingBookmark(null);
     } else {
-      await onAddBookmark(Number(draft.categoryIndex), { name, url });
+      await onAddBookmark(parseCategoryPath(draft.categoryPath), { name, url });
     }
 
     setDraft((prev) => ({ ...prev, name: "", url: "" }));
     setAddOpen(false);
   };
 
-  const handleEditBookmark = (categoryIndex, bookmarkIndex, bookmark) => {
-    setEditingBookmark({ categoryIndex, bookmarkIndex });
+  const handleEditBookmark = (categoryPath, bookmarkIndex, bookmark) => {
+    setEditingBookmark({ categoryPath, bookmarkIndex });
     setDraft({
-      categoryIndex,
+      categoryPath: serializeCategoryPath(categoryPath),
       name: bookmark.name || "",
       url: bookmark.url || "",
     });
     setAddOpen(true);
   };
 
-  const handleEditCategory = (categoryIndex, title) => {
-    setEditingCategory({ categoryIndex, previousTitle: title });
+  const handleEditCategory = (categoryPath, title) => {
+    setEditingCategory({ categoryPath, previousTitle: title });
     setCategoryDraft(title || "");
+    setCategoryParentPath("");
     setAddOpen(false);
     setEditingBookmark(null);
     setCategoryOpen(true);
   };
 
-  const handleDeleteCategory = async (categoryIndex, title) => {
-    await onDeleteCategory(categoryIndex);
+  const handleDeleteCategory = async (categoryPath, title) => {
+    await onDeleteCategory(categoryPath);
     setCollapsedCategories((current) => {
       const next = new Set(current);
       next.delete(title);
       return next;
     });
 
-    if (editingCategory?.categoryIndex === categoryIndex) {
+    if (editingCategory && categoryPathsMatch(editingCategory.categoryPath, categoryPath)) {
       setEditingCategory(null);
       setCategoryDraft("");
       setCategoryOpen(false);
@@ -386,7 +451,7 @@ function BookmarkView({
     setCategoryOpen(false);
     setDraft((prev) => ({
       ...prev,
-      categoryIndex: activeCategoryIndex ?? prev.categoryIndex ?? 0,
+      categoryPath: String(activeCategoryIndex ?? prev.categoryPath ?? 0),
       name: "",
       url: "",
     }));
@@ -451,7 +516,7 @@ function BookmarkView({
     }
 
     if (editingCategory) {
-      await onRenameCategory(editingCategory.categoryIndex, title);
+      await onRenameCategory(editingCategory.categoryPath, title);
       setCollapsedCategories((current) => {
         const next = new Set(current);
 
@@ -464,7 +529,7 @@ function BookmarkView({
       });
       setEditingCategory(null);
     } else {
-      await onAddCategory(title);
+      await onAddCategory(title, categoryParentPath ? parseCategoryPath(categoryParentPath) : null);
       setCollapsedCategories((current) => {
         const next = new Set(current);
         next.delete(title);
@@ -473,6 +538,7 @@ function BookmarkView({
     }
 
     setCategoryDraft("");
+    setCategoryParentPath("");
     setCategoryOpen(false);
   };
 
@@ -507,26 +573,26 @@ function BookmarkView({
     height: `${Math.max(22, pillHeight * 0.42)}px`,
   };
 
-  const renderNestedGroup = (group, path, depth = 1) => {
+  function renderNestedGroup(group, categoryPath, labelPath, depth = 1) {
     const content = Array.isArray(group.content) ? group.content : [];
     const children = Array.isArray(group.children) ? group.children : [];
-    const collapseKey = getGroupCollapseKey(path);
+    const collapseKey = getGroupCollapseKey(labelPath);
     const isCollapsed = collapsedCategories.has(collapseKey);
 
     return (
       <React.Fragment key={collapseKey}>
-        <span className="relative inline-flex" style={{ marginLeft: `${Math.min(depth * 18, 72)}px` }}>
+        <span className="group/category relative inline-flex" style={{ marginLeft: `${Math.min(depth * 18, 72)}px` }}>
           <button
             type="button"
             onClick={() => toggleCategoryCollapsed(collapseKey)}
-            className="inline-flex items-center justify-between gap-2 rounded-full bg-primary/80 font-medium text-primary-foreground shadow-lg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring"
+            className={`inline-flex items-center justify-between gap-2 rounded-full shadow-lg transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring ${getCategoryPillClass(isCollapsed, true)}`}
             style={pillStyle}
             title={`${isCollapsed ? "Expand" : "Collapse"} ${group.title}`}
             aria-expanded={!isCollapsed}
           >
             <span className="inline-flex min-w-0 items-center gap-2">
               <span
-                className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/25 text-primary-foreground"
+                className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/25 text-current"
                 style={{
                   width: `${Math.max(20, iconSize * 1.05)}px`,
                   height: `${Math.max(20, iconSize * 1.05)}px`,
@@ -538,56 +604,155 @@ function BookmarkView({
                   <HiMinus style={{ width: `${Math.max(12, iconSize * 0.62)}px`, height: `${Math.max(12, iconSize * 0.62)}px` }} />
                 )}
               </span>
+              <span className="rounded-full bg-background/35 px-2 py-0.5 text-[0.65em] uppercase tracking-wide text-current">
+                Sub
+              </span>
               <span className="block truncate">{group.title}</span>
             </span>
             <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/20 px-2 py-0.5 text-[0.72em]">
               {countBookmarksInGroup(group)}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleEditCategory(categoryPath, group.title);
+            }}
+            className="absolute -right-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover/category:opacity-100"
+            style={controlButtonStyle}
+            title={`Rename ${group.title}`}
+          >
+            <HiPencil className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleDeleteCategory(categoryPath, group.title);
+            }}
+            className="absolute -left-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-destructive hover:text-destructive-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover/category:opacity-100"
+            style={controlButtonStyle}
+            title={`Delete ${group.title}`}
+          >
+            <HiTrash className="size-3.5" />
+          </button>
         </span>
 
         {!isCollapsed && content.map(({ name, url }, index) => {
           const iconUrl = faviconUrl(url);
           const selfHosted = isSelfHostedUrl(url);
+          const bookmark = { name, url };
 
           return (
-            <a
+            <span
               key={`${collapseKey}-${url}-${index}`}
-              href={url}
-              className="inline-flex items-center rounded-full bg-card text-card-foreground shadow-lg transition hover:bg-accent hover:text-accent-foreground"
-              style={{ ...bookmarkPillStyle, marginLeft: `${Math.min(depth * 18, 72)}px` }}
-              title={url}
+              style={{ marginLeft: `${Math.min(depth * 18, 72)}px` }}
+              className="group relative inline-flex"
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                setDraggedItem({
+                  type: "bookmark",
+                  categoryIndex: categoryPath,
+                  bookmarkIndex: index,
+                });
+              }}
+              onDragOver={(event) => {
+                if (draggedItem?.type === "bookmark") {
+                  event.preventDefault();
+                  setDragOverItem({
+                    type: "bookmark",
+                    categoryIndex: categoryPath,
+                    bookmarkIndex: index,
+                  });
+                }
+              }}
+              onDrop={(event) => handleBookmarkDrop(event, categoryPath, index)}
+              onDragEnd={handleDragEnd}
             >
-              <span
-                className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/65"
-                style={iconWrapStyle}
+              <a
+                href={url}
+                draggable={false}
+                className={`inline-flex cursor-grab items-center rounded-full bg-card text-card-foreground shadow-lg transition active:cursor-grabbing hover:bg-accent hover:text-accent-foreground ${
+                  dragOverItem?.type === "bookmark" &&
+                  categoryPathsMatch(dragOverItem.categoryIndex, categoryPath) &&
+                  dragOverItem.bookmarkIndex === index
+                    ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                    : ""
+                }`}
+                style={bookmarkPillStyle}
+                title={url}
               >
-                {selfHosted ? (
-                  <LocalServiceStatus url={url} className="size-4" />
-                ) : iconUrl ? (
-                  <img
-                    src={iconUrl}
-                    alt=""
-                    className="rounded-sm object-contain"
-                    style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
-                    onError={(imgEvent) => { imgEvent.currentTarget.style.display = "none"; }}
-                  />
-                ) : (
-                  <HiArrowTopRightOnSquare className="opacity-65" style={{ width: `${iconSize}px`, height: `${iconSize}px` }} />
-                )}
-              </span>
-              <span className="truncate font-medium">{name}</span>
-            </a>
+                <span
+                  className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/65"
+                  style={iconWrapStyle}
+                >
+                  {selfHosted ? (
+                    <LocalServiceStatus url={url} className="size-4" />
+                  ) : iconUrl ? (
+                    <img
+                      src={iconUrl}
+                      alt=""
+                      className="rounded-sm object-contain"
+                      style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+                      onError={(imgEvent) => { imgEvent.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <HiArrowTopRightOnSquare className="opacity-65" style={{ width: `${iconSize}px`, height: `${iconSize}px` }} />
+                  )}
+                </span>
+                <span className="truncate font-medium">{name}</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => onRemoveBookmark(categoryPath, index)}
+                className="absolute -left-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-destructive hover:text-destructive-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+                style={controlButtonStyle}
+                title={`Remove ${name}`}
+              >
+                <HiMinus className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleEditBookmark(categoryPath, index, bookmark)}
+                className="absolute -right-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+                style={controlButtonStyle}
+                title={`Edit ${name}`}
+              >
+                <HiPencil className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMoveBookmark(categoryPath, index, -1)}
+                className="absolute -bottom-1.5 left-2 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+                style={controlButtonStyle}
+                title={`Move ${name} left`}
+              >
+                <HiChevronLeft className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMoveBookmark(categoryPath, index, 1)}
+                className="absolute -bottom-1.5 right-2 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+                style={controlButtonStyle}
+                title={`Move ${name} right`}
+              >
+                <HiChevronRight className="size-3.5" />
+              </button>
+            </span>
           );
         })}
 
-        {!isCollapsed && children.map((child) => renderNestedGroup(child, [...path, child.title], depth + 1))}
+        {!isCollapsed && children.map((child, childIndex) =>
+          renderNestedGroup(child, [...categoryPath, childIndex], [...labelPath, child.title], depth + 1)
+        )}
       </React.Fragment>
     );
-  };
+  }
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-background px-4 pb-5 pt-24 text-foreground sm:px-6">
+    <div className="h-screen w-full overflow-y-auto bg-background px-4 pb-16 pt-24 text-foreground sm:px-6">
       <div className="flex min-h-20 flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-5">
         <button
           type="button"
@@ -604,6 +769,14 @@ function BookmarkView({
           title="Import browser bookmarks export"
         >
           Import Bookmarks
+        </button>
+        <button
+          type="button"
+          onClick={onExportBookmarks}
+          className="inline-flex h-12 items-center justify-center rounded-full bg-card px-5 text-sm font-medium text-card-foreground shadow-lg transition hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          title="Export bookmarks as browser HTML"
+        >
+          Export Bookmarks
         </button>
       </div>
       <input
@@ -658,6 +831,7 @@ function BookmarkView({
           const content = Array.isArray(group.content) ? group.content : [];
           const children = Array.isArray(group.children) ? group.children : [];
           const isCollapsed = collapsedCategories.has(group.title);
+          const categoryPath = [group.originalIndex];
 
           return (
             <React.Fragment key={`${group.title}-${group.originalIndex}`}>
@@ -680,10 +854,10 @@ function BookmarkView({
                 <button
                   type="button"
                   onClick={() => {
-                    setDraft((prev) => ({ ...prev, categoryIndex: group.originalIndex }));
+                    setDraft((prev) => ({ ...prev, categoryPath: serializeCategoryPath(categoryPath) }));
                     toggleCategoryCollapsed(group.title);
                   }}
-                  className={`inline-flex cursor-grab items-center justify-between gap-2 rounded-full bg-primary font-medium text-primary-foreground shadow-lg transition active:cursor-grabbing hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring ${
+                  className={`inline-flex cursor-grab items-center justify-between gap-2 rounded-full shadow-lg transition active:cursor-grabbing hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring ${getCategoryPillClass(isCollapsed)} ${
                     dragOverItem?.type === "category" && dragOverItem.categoryIndex === group.originalIndex
                       ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
                       : ""
@@ -694,7 +868,7 @@ function BookmarkView({
                 >
                   <span className="inline-flex min-w-0 items-center gap-2">
                     <span
-                      className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/25 text-primary-foreground"
+                      className="inline-flex shrink-0 items-center justify-center rounded-full bg-background/25 text-current"
                       style={{
                         width: `${Math.max(20, iconSize * 1.05)}px`,
                         height: `${Math.max(20, iconSize * 1.05)}px`,
@@ -740,7 +914,7 @@ function BookmarkView({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleEditCategory(group.originalIndex, group.title);
+                    handleEditCategory(categoryPath, group.title);
                   }}
                   className="absolute -bottom-1.5 right-2 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover/category:opacity-100"
                   style={controlButtonStyle}
@@ -753,7 +927,7 @@ function BookmarkView({
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      handleDeleteCategory(group.originalIndex, group.title);
+                      handleDeleteCategory(categoryPath, group.title);
                     }}
                     className="absolute -bottom-1.5 left-2 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-destructive hover:text-destructive-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover/category:opacity-100"
                     style={controlButtonStyle}
@@ -830,7 +1004,7 @@ function BookmarkView({
                     </a>
                     <button
                       type="button"
-                      onClick={() => onRemoveBookmark(group.originalIndex, index)}
+                      onClick={() => onRemoveBookmark(categoryPath, index)}
                       className="absolute -left-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-destructive hover:text-destructive-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
                       style={controlButtonStyle}
                       title={`Remove ${name}`}
@@ -839,7 +1013,7 @@ function BookmarkView({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleEditBookmark(group.originalIndex, index, bookmark)}
+                      onClick={() => handleEditBookmark(categoryPath, index, bookmark)}
                       className="absolute -right-1.5 -top-1.5 inline-flex items-center justify-center rounded-full border border-border/60 bg-card text-card-foreground opacity-0 shadow-md transition hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
                       style={controlButtonStyle}
                       title={`Edit ${name}`}
@@ -867,8 +1041,8 @@ function BookmarkView({
                   </span>
                 );
               })}
-              {!isCollapsed && children.map((child) =>
-                renderNestedGroup(child, [group.title, child.title])
+              {!isCollapsed && children.map((child, childIndex) =>
+                renderNestedGroup(child, [group.originalIndex, childIndex], [group.title, child.title])
               )}
             </React.Fragment>
           );
@@ -890,6 +1064,7 @@ function BookmarkView({
             setEditingBookmark(null);
             setEditingCategory(null);
             setCategoryDraft("");
+            setCategoryParentPath("");
             setCategoryOpen((open) => !open);
           }}
           className="inline-flex items-center justify-center rounded-full bg-card px-5 font-medium text-card-foreground shadow-lg transition hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -914,6 +1089,23 @@ function BookmarkView({
               placeholder="Work"
             />
           </label>
+          {!editingCategory ? (
+            <label className="grid min-w-52 gap-1 text-xs text-muted-foreground">
+              Parent
+              <select
+                value={categoryParentPath}
+                onChange={(event) => setCategoryParentPath(event.target.value)}
+                className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Top level</option>
+                {categoryOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <button
             type="submit"
             className="h-11 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition hover:opacity-90"
@@ -931,15 +1123,15 @@ function BookmarkView({
           <label className="grid gap-1 text-xs text-muted-foreground">
             Category
             <select
-              value={draft.categoryIndex}
+              value={draft.categoryPath}
               onChange={(event) =>
-                setDraft((prev) => ({ ...prev, categoryIndex: event.target.value }))
+                setDraft((prev) => ({ ...prev, categoryPath: event.target.value }))
               }
               className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
             >
-              {bookmarks.map((group, index) => (
-                <option key={`${group.title}-${index}`} value={index}>
-                  {group.title}
+              {categoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -1074,18 +1266,71 @@ export default function Index() {
       : `${isSelfHostedUrl(trimmedUrl) ? "http" : "https"}://${trimmedUrl}`;
   };
 
-  const normalizeImportedBookmarkGroup = (group) => ({
-    title: group.title || "Imported",
-    content: (Array.isArray(group.content) ? group.content : [])
-      .filter((bookmark) => bookmark?.name && bookmark?.url)
-      .map((bookmark) => ({
-        name: bookmark.name,
-        url: normalizeBookmarkUrl(bookmark.url),
-      })),
-    children: (Array.isArray(group.children) ? group.children : [])
-      .map(normalizeImportedBookmarkGroup)
-      .filter((child) => countBookmarksInGroup(child) > 0),
-  });
+  const normalizeCategoryPath = (categoryPath) => (
+    Array.isArray(categoryPath) ? categoryPath : [categoryPath]
+  ).map((part) => Number(part)).filter((part) => Number.isInteger(part));
+
+  const updateBookmarkGroupAtPath = (groups, categoryPath, updater) => {
+    const [currentIndex, ...restPath] = normalizeCategoryPath(categoryPath);
+
+    return groups.map((group, index) => {
+      if (index !== currentIndex) {
+        return group;
+      }
+
+      if (!restPath.length) {
+        return updater(group);
+      }
+
+      return {
+        ...group,
+        children: updateBookmarkGroupAtPath(Array.isArray(group.children) ? group.children : [], restPath, updater),
+      };
+    });
+  };
+
+  const getBookmarkGroupAtPath = (groups, categoryPath) => {
+    const [currentIndex, ...restPath] = normalizeCategoryPath(categoryPath);
+    const group = groups[currentIndex];
+
+    if (!group || !restPath.length) {
+      return group;
+    }
+
+    return getBookmarkGroupAtPath(Array.isArray(group.children) ? group.children : [], restPath);
+  };
+
+  const removeBookmarkGroupAtPath = (groups, categoryPath) => {
+    const [currentIndex, ...restPath] = normalizeCategoryPath(categoryPath);
+
+    if (!restPath.length) {
+      return groups.filter((_group, index) => index !== currentIndex);
+    }
+
+    return groups.map((group, index) => (
+      index === currentIndex
+        ? {
+            ...group,
+            children: removeBookmarkGroupAtPath(Array.isArray(group.children) ? group.children : [], restPath),
+          }
+        : group
+    ));
+  };
+
+  function normalizeImportedBookmarkGroup(group) {
+    return {
+      title: group.title || "Imported",
+      content: (Array.isArray(group.content) ? group.content : [])
+        .filter((bookmark) => bookmark?.name && bookmark?.url)
+        .map((bookmark) => ({
+          name: bookmark.name,
+          url: normalizeBookmarkUrl(bookmark.url),
+        })),
+      children: (Array.isArray(group.children) ? group.children : [])
+        .map(normalizeImportedBookmarkGroup)
+        .filter((child) => countBookmarksInGroup(child) > 0),
+    };
+  }
 
   const persistSettings = async (nextSettings) => {
     latestSettingsRef.current = nextSettings;
@@ -1099,17 +1344,13 @@ export default function Index() {
     const normalizedUrl = normalizeBookmarkUrl(bookmark.url);
     const nextSettings = {
       ...currentSettings,
-      bookmark: currentBookmarkGroups.map((group, index) =>
-        index === categoryIndex
-          ? {
-              ...group,
-              content: [
-                ...(Array.isArray(group.content) ? group.content : []),
-                { name: bookmark.name, url: normalizedUrl },
-              ],
-            }
-          : group
-      ),
+      bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex, (group) => ({
+        ...group,
+        content: [
+          ...(Array.isArray(group.content) ? group.content : []),
+          { name: bookmark.name, url: normalizedUrl },
+        ],
+      })),
     };
 
     await persistSettings(nextSettings);
@@ -1121,18 +1362,14 @@ export default function Index() {
     const normalizedUrl = normalizeBookmarkUrl(bookmark.url);
     const nextSettings = {
       ...currentSettings,
-      bookmark: currentBookmarkGroups.map((group, index) =>
-        index === categoryIndex
-          ? {
-              ...group,
-              content: (Array.isArray(group.content) ? group.content : []).map((item, itemIndex) =>
-                itemIndex === bookmarkIndex
-                  ? { name: bookmark.name, url: normalizedUrl }
-                  : item
-              ),
-            }
-          : group
-      ),
+      bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex, (group) => ({
+        ...group,
+        content: (Array.isArray(group.content) ? group.content : []).map((item, itemIndex) =>
+          itemIndex === bookmarkIndex
+            ? { name: bookmark.name, url: normalizedUrl }
+            : item
+        ),
+      })),
     };
 
     await persistSettings(nextSettings);
@@ -1143,29 +1380,41 @@ export default function Index() {
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
     const nextSettings = {
       ...currentSettings,
-      bookmark: currentBookmarkGroups.map((group, index) =>
-        index === categoryIndex
-          ? {
-              ...group,
-              content: (Array.isArray(group.content) ? group.content : []).filter(
-                (_item, itemIndex) => itemIndex !== bookmarkIndex
-              ),
-            }
-          : group
-      ),
+      bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex, (group) => ({
+        ...group,
+        content: (Array.isArray(group.content) ? group.content : []).filter(
+          (_item, itemIndex) => itemIndex !== bookmarkIndex
+        ),
+      })),
     };
 
     await persistSettings(nextSettings);
   };
 
-  const handleAddBookmarkCategory = async (title) => {
+  const handleAddBookmarkCategory = async (title, parentCategoryPath = null) => {
     const currentSettings = latestSettingsRef.current;
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
+    const newCategory = { title, content: [], children: [] };
+
+    if (parentCategoryPath) {
+      await persistSettings({
+        ...currentSettings,
+        bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, parentCategoryPath, (group) => ({
+          ...group,
+          children: [
+            ...(Array.isArray(group.children) ? group.children : []),
+            newCategory,
+          ],
+        })),
+      });
+      return;
+    }
+
     const nextSettings = {
       ...currentSettings,
       bookmark: [
         ...currentBookmarkGroups,
-        { title, content: [] },
+        newCategory,
       ],
     };
 
@@ -1198,46 +1447,65 @@ export default function Index() {
     const currentSettings = latestSettingsRef.current;
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
 
-    if (!currentBookmarkGroups[categoryIndex]) {
-      return;
-    }
-
     await persistSettings({
       ...currentSettings,
-      bookmark: currentBookmarkGroups.map((group, index) =>
-        index === categoryIndex
-          ? { ...group, title }
-          : group
-      ),
+      bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex, (group) => ({ ...group, title })),
     });
+  };
+
+  const handleExportBookmarks = () => {
+    const currentSettings = latestSettingsRef.current;
+    const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
+    const html = createBookmarksExportHtml(currentBookmarkGroups);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+
+    anchor.href = url;
+    anchor.download = `startup-page-bookmarks-${date}.html`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleDeleteBookmarkCategory = async (categoryIndex) => {
     const currentSettings = latestSettingsRef.current;
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
     const currentMapping = currentSettings.layout?.bookmarkBoxCategories || [0, 1, 2, 3, 4];
+    const categoryPath = normalizeCategoryPath(categoryIndex);
 
-    if (currentBookmarkGroups.length <= 1 || !currentBookmarkGroups[categoryIndex]) {
+    if (!categoryPath.length || (categoryPath.length === 1 && currentBookmarkGroups.length <= 1)) {
       return;
     }
 
-    const bookmark = currentBookmarkGroups.filter((_group, index) => index !== categoryIndex);
-    const fallbackIndex = Math.min(categoryIndex, bookmark.length - 1);
+    if (categoryPath.length > 1) {
+      await persistSettings({
+        ...currentSettings,
+        bookmark: removeBookmarkGroupAtPath(currentBookmarkGroups, categoryPath),
+      });
+      return;
+    }
+
+    const [topLevelCategoryIndex] = categoryPath;
+    const bookmark = currentBookmarkGroups.filter((_group, index) => index !== topLevelCategoryIndex);
+    const fallbackIndex = Math.min(topLevelCategoryIndex, bookmark.length - 1);
     const bookmarkBoxCategoriesNext = currentMapping.map((mappedIndex, boxIndex) => {
-      if (mappedIndex === categoryIndex) {
+      if (mappedIndex === topLevelCategoryIndex) {
         return Math.min(boxIndex, bookmark.length - 1);
       }
 
-      if (mappedIndex > categoryIndex) {
+      if (mappedIndex > topLevelCategoryIndex) {
         return mappedIndex - 1;
       }
 
       return Math.min(mappedIndex, bookmark.length - 1);
     });
 
-    if (activeBookmarkCategory === categoryIndex) {
+    if (activeBookmarkCategory === topLevelCategoryIndex) {
       updateActiveBookmarkCategory(fallbackIndex);
-    } else if (activeBookmarkCategory > categoryIndex) {
+    } else if (activeBookmarkCategory > topLevelCategoryIndex) {
       updateActiveBookmarkCategory(activeBookmarkCategory - 1);
     }
 
@@ -1334,7 +1602,7 @@ export default function Index() {
   const handleMoveBookmark = async (categoryIndex, bookmarkIndex, direction) => {
     const currentSettings = latestSettingsRef.current;
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
-    const group = currentBookmarkGroups[categoryIndex];
+    const group = getBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex);
     const content = Array.isArray(group?.content) ? [...group.content] : [];
     const nextIndex = bookmarkIndex + direction;
 
@@ -1344,25 +1612,23 @@ export default function Index() {
 
     [content[bookmarkIndex], content[nextIndex]] = [content[nextIndex], content[bookmarkIndex]];
 
-    const bookmark = currentBookmarkGroups.map((currentGroup, index) =>
-      index === categoryIndex
-        ? { ...currentGroup, content }
-        : currentGroup
-    );
-
     await persistSettings({
       ...currentSettings,
-      bookmark,
+      bookmark: updateBookmarkGroupAtPath(currentBookmarkGroups, categoryIndex, (currentGroup) => ({
+        ...currentGroup,
+        content,
+      })),
     });
   };
 
   const handleReorderBookmark = async (fromCategoryIndex, fromBookmarkIndex, toCategoryIndex, toBookmarkIndex) => {
     const currentSettings = latestSettingsRef.current;
     const currentBookmarkGroups = Array.isArray(currentSettings.bookmark) ? currentSettings.bookmark : [];
-    const fromGroup = currentBookmarkGroups[fromCategoryIndex];
-    const toGroup = currentBookmarkGroups[toCategoryIndex];
+    const fromGroup = getBookmarkGroupAtPath(currentBookmarkGroups, fromCategoryIndex);
+    const toGroup = getBookmarkGroupAtPath(currentBookmarkGroups, toCategoryIndex);
     const fromContent = Array.isArray(fromGroup?.content) ? [...fromGroup.content] : [];
-    const toContent = fromCategoryIndex === toCategoryIndex
+    const sameCategory = JSON.stringify(normalizeCategoryPath(fromCategoryIndex)) === JSON.stringify(normalizeCategoryPath(toCategoryIndex));
+    const toContent = sameCategory
       ? fromContent
       : Array.isArray(toGroup?.content)
         ? [...toGroup.content]
@@ -1378,30 +1644,26 @@ export default function Index() {
     }
 
     if (
-      fromCategoryIndex === toCategoryIndex &&
+      sameCategory &&
       (fromBookmarkIndex === toBookmarkIndex || fromBookmarkIndex + 1 === toBookmarkIndex)
     ) {
       return;
     }
 
     const [movedBookmark] = fromContent.splice(fromBookmarkIndex, 1);
-    const adjustedTargetIndex = fromCategoryIndex === toCategoryIndex && toBookmarkIndex > fromBookmarkIndex
+    const adjustedTargetIndex = sameCategory && toBookmarkIndex > fromBookmarkIndex
       ? toBookmarkIndex - 1
       : toBookmarkIndex;
     const boundedTargetIndex = Math.max(0, Math.min(adjustedTargetIndex, toContent.length));
     toContent.splice(boundedTargetIndex, 0, movedBookmark);
 
-    const bookmark = currentBookmarkGroups.map((group, index) => {
-      if (index === fromCategoryIndex) {
-        return { ...group, content: fromContent };
-      }
-
-      if (index === toCategoryIndex) {
-        return { ...group, content: toContent };
-      }
-
-      return group;
-    });
+    const bookmark = sameCategory
+      ? updateBookmarkGroupAtPath(currentBookmarkGroups, fromCategoryIndex, (group) => ({ ...group, content: fromContent }))
+      : updateBookmarkGroupAtPath(
+          updateBookmarkGroupAtPath(currentBookmarkGroups, fromCategoryIndex, (group) => ({ ...group, content: fromContent })),
+          toCategoryIndex,
+          (group) => ({ ...group, content: toContent })
+        );
 
     await persistSettings({
       ...currentSettings,
@@ -1516,7 +1778,7 @@ export default function Index() {
           {showBox("clock") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}><Clock /></div>}
         </div>
         </div>
-        <div className={`absolute inset-0 transition-all duration-500 ease-in-out ${bookmarksOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
+        <div className={`absolute inset-0 overflow-y-auto transition-all duration-500 ease-in-out ${bookmarksOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
           <BookmarkView
             bookmarks={bookmarkGroups}
             activeCategoryIndex={activeBookmarkCategory}
@@ -1532,6 +1794,7 @@ export default function Index() {
             onReorderCategory={handleReorderBookmarkCategory}
             onReorderBookmark={handleReorderBookmark}
             onImportBookmarks={handleImportBookmarks}
+            onExportBookmarks={handleExportBookmarks}
             pillSize={ui.bookmarkPillSize}
           />
         </div>
