@@ -26,24 +26,48 @@ export function faviconUrl(url) {
   return host ? `https://www.google.com/s2/favicons?domain=${host}&sz=16` : null;
 }
 
+function isIPv4(host) {
+
+  return /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/.test(
+
+    host
+
+  );
+
+}
+
+function isIPv6(host) {
+
+  return /^[0-9a-f:]+$/i.test(host) && host.includes(":");
+
+}
+
 export function isSelfHostedUrl(url) {
+
   try {
+
     const parsed = new URL(getParsableUrl(url));
+
     const host = parsed.hostname.toLowerCase();
 
     return (
+
+      isIPv4(host) ||
+
+      isIPv6(host) ||
+
       host === "localhost" ||
-      host === "0.0.0.0" ||
-      host === "::1" ||
-      host.endsWith(".local") ||
-      /^127\./.test(host) ||
-      /^10\./.test(host) ||
-      /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+
+      host.endsWith(".local")
+
     );
+
   } catch (_error) {
+
     return false;
+
   }
+
 }
 
 export function LocalServiceStatus({ url, className = "size-3.5" }) {
