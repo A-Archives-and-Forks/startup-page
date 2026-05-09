@@ -57,11 +57,11 @@ function PaletteSwatchPreview({ swatches, mode }) {
   const modeSwatches = mode === "dark" ? swatches.dark : swatches.light;
   const keys = ["background", "card", "primary", "accent", "muted"];
   return (
-    <div className="mb-4 flex h-20 items-center justify-center gap-2 rounded-lg border border-border/40 bg-muted/30">
+    <div className="mb-2 flex h-12 items-center justify-center gap-1.5 rounded-md border border-border/40 bg-muted/30">
       {keys.map((key) => (
         <div
           key={key}
-          className="size-8 rounded-full border border-border/60 shadow-sm"
+          className="size-5 rounded-full border border-border/60 shadow-sm"
           style={{ backgroundColor: modeSwatches[key] }}
           title={key}
         />
@@ -110,14 +110,14 @@ function ChoiceButton({ selected, title, description, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-lg border p-3 text-left text-sm transition",
+        "rounded-md border p-2.5 text-left text-xs transition",
         selected
           ? "border-primary bg-accent text-accent-foreground shadow-sm"
           : "border-border bg-card hover:bg-accent/50"
       )}
     >
-      <div className="font-medium">{title}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+      <div className="font-medium leading-tight">{title}</div>
+      <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{description}</div>
     </button>
   );
 }
@@ -610,23 +610,23 @@ function SettingsButton() {
           <HiOutlineCog />
         </button>
       </DialogTrigger>
-      <DialogContent className="border-border/60 bg-background/98 p-0 text-sm [&_[data-slot=card-header]]:p-4 [&_[data-slot=card-content]]:p-4 [&_[data-slot=card-content]]:pt-0 [&_[data-slot=card-title]]:text-base [&_[data-slot=tabs-trigger]]:px-2.5 [&_[data-slot=tabs-trigger]]:py-2 [&_[data-slot=tabs-trigger]]:text-xs [&_[data-slot=input]]:h-9 [&_[data-slot=input]]:text-xs [&_[data-slot=button]]:h-8 [&_[data-slot=button]]:px-3 [&_[data-slot=button]]:text-xs">
-        <Tabs defaultValue="appearance" orientation="vertical" className="grid min-h-[72vh] lg:grid-cols-[220px_1fr] gap-0">
+      <DialogContent className="settings-dialog w-[min(92vw,980px)] border-border/60 bg-background/98 p-0 text-[11px] [&_[data-slot=card]]:rounded-lg [&_[data-slot=card-header]]:gap-0.5 [&_[data-slot=card-header]]:p-2.5 [&_[data-slot=card-content]]:p-2.5 [&_[data-slot=card-content]]:pt-0 [&_[data-slot=card-title]]:text-[13px] [&_[data-slot=card-description]]:text-[11px] [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:py-1.5 [&_[data-slot=tabs-trigger]]:text-[11px] [&_[data-slot=input]]:h-7 [&_[data-slot=input]]:text-[11px] [&_[data-slot=button]]:h-7 [&_[data-slot=button]]:px-2.5 [&_[data-slot=button]]:text-[11px]">
+        <Tabs defaultValue="appearance" orientation="vertical" className="grid min-h-[76vh] lg:grid-cols-[160px_1fr] gap-0">
           <div className="border-b border-border bg-sidebar text-sidebar-foreground lg:border-r lg:border-b-0">
-            <div className="p-4">
+            <div className="p-2.5">
               <DialogHeader>
-                <DialogTitle className="font-serif text-xl">Workspace Settings</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="font-serif text-base">Workspace Settings</DialogTitle>
+                <DialogDescription className="text-xs leading-snug">
                   Built on the new shadcn-style UI layer with live theme and palette preview.
                 </DialogDescription>
               </DialogHeader>
             </div>
-            <TabsList className="mx-3 mb-3 bg-transparent p-0">
+            <TabsList className="mx-2 mb-2 bg-transparent p-0">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <TabsTrigger key={item.value} value={item.value} className="w-full justify-start">
-                    <Icon className="size-4" />
+                    <Icon className="size-3.5" />
                     {item.label}
                   </TabsTrigger>
                 );
@@ -635,14 +635,14 @@ function SettingsButton() {
           </div>
 
           <div className="flex flex-col">
-            <div className="max-h-[72vh] overflow-y-auto p-4 md:p-5">
-              <TabsContent value="appearance" className="mt-0 space-y-6">
+            <div className="max-h-[76vh] overflow-y-auto p-2.5 md:p-3">
+              <TabsContent value="appearance" className="mt-0 space-y-3">
                 <Card>
                   <CardHeader>
                     <CardTitle>Theme Mode</CardTitle>
                     <CardDescription>Choose how light and dark mode should be resolved.</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-3 md:grid-cols-3">
+                  <CardContent className="grid gap-2 md:grid-cols-3">
                     {[
                       { value: "system", title: "System", description: "Follow the OS preference." },
                       { value: "light", title: "Light", description: "Force the brighter variant." },
@@ -664,22 +664,22 @@ function SettingsButton() {
                     <CardTitle>Theme Palette</CardTitle>
                     <CardDescription>Switch the base visual language of the interface.</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-3 lg:grid-cols-3">
+                  <CardContent className="grid gap-2 lg:grid-cols-3">
                     {BUILT_IN_PALETTES.map((option) => (
                       <button
                         key={option.value}
                         type="button"
                         onClick={() => handleThemePaletteChange(option.value)}
                         className={cn(
-                          "rounded-xl border p-4 text-left transition",
+                          "rounded-md border p-2.5 text-left transition",
                           selectedThemePalette === option.value
                             ? "border-primary bg-accent shadow-sm"
                             : "border-border bg-card hover:bg-accent/50"
                         )}
                       >
                         <PaletteSwatchPreview swatches={option.swatches} mode={theme} />
-                        <div className="font-medium">{option.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{option.description}</div>
+                        <div className="text-xs font-medium leading-tight">{option.title}</div>
+                        <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{option.description}</div>
                       </button>
                     ))}
                     {(settingsState.customThemes || []).map((ct) => {
@@ -693,15 +693,15 @@ function SettingsButton() {
                           type="button"
                           onClick={() => handleThemePaletteChange(ct.id, { light: ct.light, dark: ct.dark })}
                           className={cn(
-                            "rounded-xl border p-4 text-left transition",
+                            "rounded-md border p-2.5 text-left transition",
                             selectedThemePalette === ct.id
                               ? "border-primary bg-accent shadow-sm"
                               : "border-border bg-card hover:bg-accent/50"
                           )}
                         >
                           <PaletteSwatchPreview swatches={swatches} mode={theme} />
-                          <div className="font-medium">{ct.name}</div>
-                          <div className="mt-1 text-sm text-muted-foreground">Custom theme</div>
+                          <div className="text-xs font-medium leading-tight">{ct.name}</div>
+                          <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">Custom theme</div>
                         </button>
                       );
                     })}
@@ -896,7 +896,7 @@ function SettingsButton() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="layout" className="mt-0 space-y-6">
+              <TabsContent value="layout" className="mt-0 space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>Visible Modules</CardTitle>
@@ -944,7 +944,7 @@ function SettingsButton() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="content" className="mt-0 space-y-6">
+              <TabsContent value="content" className="mt-0 space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>Location and API Settings</CardTitle>

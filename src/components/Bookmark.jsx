@@ -124,7 +124,7 @@ export function LocalServiceStatus({ url, className = "size-3.5" }) {
 
 const Bookmark = ({ title, content, cardClass, onTitleClick }) => {
   const titleContent = (
-    <div className="mt-1 truncate text-sm font-semibold leading-none text-primary-foreground">
+    <div className="bookmark-title truncate font-semibold leading-none text-primary-foreground">
       {title}
     </div>
   );
@@ -136,8 +136,8 @@ const Bookmark = ({ title, content, cardClass, onTitleClick }) => {
         "bg-primary text-primary-foreground rounded-xl col-span-1 h-36 w-36 overflow-hidden border border-border/50 shadow-lg"
       }
     >
-      <div className="flex h-full flex-col">
-        <div className="border-b border-primary-foreground/15 px-3 pt-2 pb-2">
+      <div className="bookmark-widget flex h-full flex-col">
+        <div className="bookmark-header border-b border-primary-foreground/15">
           {onTitleClick ? (
             <button
               type="button"
@@ -152,30 +152,30 @@ const Bookmark = ({ title, content, cardClass, onTitleClick }) => {
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-          <ul className="space-y-1">
+        <div className="bookmark-list min-h-0 flex-1 overflow-y-auto">
+          <ul className="bookmark-items">
             {content.map(({ name, url }, key) => (
               <li key={key}>
                 <a
                   href={url}
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-primary-foreground/10"
+                  className="bookmark-link flex items-center rounded-lg transition hover:bg-primary-foreground/10"
                   title={url}
                 >
                   {isSelfHostedUrl(url) ? (
-                    <LocalServiceStatus url={url} />
+                    <LocalServiceStatus url={url} className="bookmark-favicon inline-block shrink-0 rounded-full" />
                   ) : faviconUrl(url) ? (
                     <img
                       src={faviconUrl(url)}
                       alt=""
-                      className="size-3.5 shrink-0 rounded-sm object-contain opacity-90"
+                      className="bookmark-favicon shrink-0 rounded-sm object-contain opacity-90"
                       onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                   ) : null}
                   <div className="min-w-0">
-                    <div className="truncate text-xs font-medium leading-tight text-primary-foreground">
+                    <div className="bookmark-name truncate font-medium leading-tight text-primary-foreground">
                       {name}
                     </div>
-                    <div className="mt-0.5 truncate text-[10px] leading-none text-primary-foreground/65">
+                    <div className="bookmark-host truncate leading-none text-primary-foreground/65">
                       {getHostname(url)}
                     </div>
                   </div>

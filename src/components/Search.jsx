@@ -41,28 +41,28 @@ class SearchBox extends React.Component {
 
   render() {
     const searchButtonClass =
-      "flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-card/80 shadow-sm outline-none transition hover:bg-accent/70 disabled:border-primary/40 disabled:bg-primary/14 disabled:opacity-100 opacity-75";
+      "search-engine-button flex items-center justify-center rounded-full border border-border/60 bg-card/80 shadow-sm outline-none transition hover:bg-accent/70 disabled:border-primary/40 disabled:bg-primary/14 disabled:opacity-100 opacity-75 bg-center bg-no-repeat cursor-pointer";
 
     return (
-      <div className="flex justify-center">
-        <div>
-          <div className="flex space-x-8 justify-center pt-8 pb-4" onClick={this.buttonToggle.bind(this)}>
-              <button className={`${searchButtonClass} bg-google-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
+      <div className="search-widget flex h-full w-full items-center justify-center">
+        <div className="search-inner">
+          <div className="search-engines flex justify-center" onClick={this.buttonToggle.bind(this)}>
+              <button className={`${searchButtonClass} bg-google-icon`}
                       type="button" disabled={this.state.disabled === "1"}
                       data-engine-id="1" data-address="http://www.google.com/search?q=">
               </button>
-              <button className={`${searchButtonClass} bg-duck-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
+              <button className={`${searchButtonClass} bg-duck-icon`}
                       type="button" disabled={this.state.disabled === "2"}
                       data-engine-id="2" data-address="https://www.duckduckgo.com/?q="></button>
-              <button className={`${searchButtonClass} bg-wolfram-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
+              <button className={`${searchButtonClass} bg-wolfram-icon`}
                       type="button" disabled={this.state.disabled === "3"}
                       data-engine-id="3" data-address="https://www.wolframalpha.com/input/?i="></button>
-              <button className={`${searchButtonClass} bg-stack-icon bg-center bg-no-repeat bg-[length:1.75rem_1.75rem] cursor-pointer`}
+              <button className={`${searchButtonClass} bg-stack-icon`}
                       type="button" disabled={this.state.disabled === "4"}
                       data-engine-id="4" data-address="https://stackoverflow.com/search?q="></button>
           </div>
           <input
-            className="search-input items-center w-60 h-9 border border-input bg-input/45 text-sm text-foreground placeholder:text-muted-foreground rounded-xl shadow-sm transition focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="search-input items-center border border-input bg-input/45 text-foreground placeholder:text-muted-foreground rounded-xl shadow-sm transition focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
             autoFocus
             id="search-input"
             type="text"

@@ -42,10 +42,10 @@ export default function RSSFeed() {
 
   if (status === "no-feed") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-[inherit] bg-card p-6 text-center">
+      <div className="rss-feed flex h-full w-full items-center justify-center rounded-[inherit] bg-card text-center">
         <div>
-          <p className="text-sm font-semibold text-foreground">RSS Feed</p>
-          <p className="mt-1 text-xs text-muted-foreground">Set an RSS feed URL in Settings → Content → Feature Panel.</p>
+          <p className="rss-title font-semibold text-foreground">RSS Feed</p>
+          <p className="rss-subtitle text-muted-foreground">Set an RSS feed URL in Settings, Content, Feature Panel.</p>
         </div>
       </div>
     );
@@ -53,27 +53,27 @@ export default function RSSFeed() {
 
   if (status === "loading") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-[inherit] bg-card">
-        <span className="text-xs text-muted-foreground">Loading feed…</span>
+      <div className="rss-feed flex h-full w-full items-center justify-center rounded-[inherit] bg-card">
+        <span className="rss-subtitle text-muted-foreground">Loading feed...</span>
       </div>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-[inherit] bg-card p-4 text-center">
-        <span className="text-xs text-muted-foreground">Could not load feed. Check the URL in Settings.</span>
+      <div className="rss-feed flex h-full w-full items-center justify-center rounded-[inherit] bg-card text-center">
+        <span className="rss-subtitle text-muted-foreground">Could not load feed. Check the URL in Settings.</span>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full flex-col rounded-[inherit] bg-card">
-      <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
+    <div className="rss-feed flex h-full w-full flex-col rounded-[inherit] bg-card">
+      <div className="rss-header flex items-center border-b border-border/50">
         {feed?.image && (
-          <img src={feed.image} alt="" className="size-4 shrink-0 rounded object-cover" />
+          <img src={feed.image} alt="" className="rss-feed-icon shrink-0 rounded object-cover" />
         )}
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="rss-feed-title truncate font-semibold uppercase text-muted-foreground">
           {feed?.title || "RSS Feed"}
         </p>
       </div>
@@ -85,14 +85,14 @@ export default function RSSFeed() {
               href={item.link}
               target="_blank"
               rel="noreferrer"
-              className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/30"
+              className="rss-item flex items-start transition-colors hover:bg-accent/30"
             >
               {item.thumbnail && (
-                <img src={item.thumbnail} alt="" className="mt-0.5 size-10 shrink-0 rounded-md object-cover" />
+                <img src={item.thumbnail} alt="" className="rss-thumbnail shrink-0 rounded-md object-cover" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-xs font-medium leading-snug text-foreground">{item.title}</p>
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                <p className="rss-item-title line-clamp-2 font-medium leading-snug text-foreground">{item.title}</p>
+                <div className="rss-item-meta flex items-center text-muted-foreground">
                   {item.author && <span className="truncate">{item.author}</span>}
                   {item.pubDate && <span className="shrink-0">{timeAgo(item.pubDate)}</span>}
                 </div>

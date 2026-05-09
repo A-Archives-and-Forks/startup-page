@@ -1189,14 +1189,42 @@ export default function Index() {
   // Section has px-4 = 32px total horizontal padding.
   const minWidthFor = (n) => n * tilePx + (n - 1) * decorativeGap + 32;
   const gridCss = `
-    .dashboard-grid { grid-template-columns: repeat(2, ${tilePx}px); grid-auto-rows: ${tilePx}px; }
-    .bookmark-page-grid { grid-template-columns: repeat(2, ${tilePx}px); grid-auto-rows: ${tilePx}px; }
-    @media (min-width: ${minWidthFor(3)}px) { .dashboard-grid { grid-template-columns: repeat(3, ${tilePx}px); } }
-    @media (min-width: ${minWidthFor(3)}px) { .bookmark-page-grid { grid-template-columns: repeat(3, ${tilePx}px); } }
-    @media (min-width: ${minWidthFor(5)}px) { .dashboard-grid { grid-template-columns: repeat(5, ${tilePx}px); } }
-    @media (min-width: ${minWidthFor(5)}px) { .bookmark-page-grid { grid-template-columns: repeat(5, ${tilePx}px); } }
-    @media (min-width: ${minWidthFor(7)}px) { .dashboard-grid { grid-template-columns: repeat(7, ${tilePx}px); } }
-    @media (min-width: ${minWidthFor(7)}px) { .bookmark-page-grid { grid-template-columns: repeat(7, ${tilePx}px); } }
+    .dashboard-grid,
+    .bookmark-page-grid {
+      --dashboard-tile-max: ${tilePx}px;
+      --dashboard-gap: ${decorativeGap}px;
+      --dashboard-inline-padding: 2rem;
+      --dashboard-tile: clamp(88px, calc((100vw - var(--dashboard-inline-padding) - var(--dashboard-gap)) / 2), var(--dashboard-tile-max));
+      grid-template-columns: repeat(2, minmax(0, var(--dashboard-tile)));
+      grid-auto-rows: var(--dashboard-tile);
+    }
+    .dashboard-grid .grid-feature-responsive {
+      grid-column: span 2 / span 2;
+    }
+    @media (min-width: ${minWidthFor(3)}px) {
+      .dashboard-grid,
+      .bookmark-page-grid {
+        --dashboard-tile: clamp(88px, calc((100vw - var(--dashboard-inline-padding) - ${decorativeGap * 2}px) / 3), var(--dashboard-tile-max));
+        grid-template-columns: repeat(3, minmax(0, var(--dashboard-tile)));
+      }
+      .dashboard-grid .grid-feature-responsive {
+        grid-column: span 3 / span 3;
+      }
+    }
+    @media (min-width: ${minWidthFor(5)}px) {
+      .dashboard-grid,
+      .bookmark-page-grid {
+        --dashboard-tile: clamp(88px, calc((100vw - var(--dashboard-inline-padding) - ${decorativeGap * 4}px) / 5), var(--dashboard-tile-max));
+        grid-template-columns: repeat(5, minmax(0, var(--dashboard-tile)));
+      }
+    }
+    @media (min-width: ${minWidthFor(7)}px) {
+      .dashboard-grid,
+      .bookmark-page-grid {
+        --dashboard-tile: clamp(88px, calc((100vw - var(--dashboard-inline-padding) - ${decorativeGap * 6}px) / 7), var(--dashboard-tile-max));
+        grid-template-columns: repeat(7, minmax(0, var(--dashboard-tile)));
+      }
+    }
   `;
   const radiusClass = ui.cardStyle === "soft" ? "rounded-[2rem]" : ui.cardStyle === "sharp" ? "rounded-md" : "rounded-xl";
   const showDecorativeMedia = ui.showDecorativeMedia !== false;
@@ -1747,13 +1775,12 @@ export default function Index() {
           </div>}
           {showBox("search") && <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} ${strongSurface}`)}><SearchBox /></div>}
           {showBox("bookmark1") && <Bookmark title={ getBookmarkGroupForBox(0).title } content={ getBookmarkGroupForBox(0).content } onTitleClick={() => openBookmarkView(bookmarkBoxCategories[0] ?? 0)} cardClass={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`)} />}
-          {showBox("unsplash1") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox1 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
-          {showBox("weather") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}><WeatherBox /></div>}
+          {showBox("weather") && <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} overflow-hidden`)}><WeatherBox /></div>}
           
           {/* row 2 */}
           {showBox("unsplash2") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox2 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
           {showBox("bookmark2") && <Bookmark title={ getBookmarkGroupForBox(1).title } content={ getBookmarkGroupForBox(1).content } onTitleClick={() => openBookmarkView(bookmarkBoxCategories[1] ?? 1)} cardClass={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`)} />}
-          {showBox("featurePanel") && <div className={panel(`h-full w-full overflow-visible ${GRID_FEATURE} ${DASHBOARD_LARGE_TILE} ${surface}`)}><FeaturePanel /></div>}
+          {showBox("featurePanel") && <div className={panel(`grid-feature-responsive h-full w-full overflow-visible ${GRID_FEATURE} ${DASHBOARD_LARGE_TILE} ${surface}`)}><FeaturePanel /></div>}
           {showBox("unsplash3") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox3 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
 
           {/* row 3 */}
