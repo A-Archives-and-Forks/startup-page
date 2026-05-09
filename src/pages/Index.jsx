@@ -1747,8 +1747,7 @@ export default function Index() {
           </div>}
           {showBox("search") && <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} ${strongSurface}`)}><SearchBox /></div>}
           {showBox("bookmark1") && <Bookmark title={ getBookmarkGroupForBox(0).title } content={ getBookmarkGroupForBox(0).content } onTitleClick={() => openBookmarkView(bookmarkBoxCategories[0] ?? 0)} cardClass={panel(`h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`)} />}
-          {showBox("unsplash1") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox1 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
-          {showBox("weather") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}><WeatherBox /></div>}
+          {showBox("weather") && <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} overflow-hidden`)}><WeatherBox /></div>}
           
           {/* row 2 */}
           {showBox("unsplash2") && <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}><Unsplash search={ settings.unsplash.unsplashBox2 } cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")} /></div>}
