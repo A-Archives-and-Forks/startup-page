@@ -849,6 +849,35 @@
   box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.24);
 }
 
+.weather-current::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 16%),
+    linear-gradient(180deg, transparent 0 58%, color-mix(in oklab, var(--primary) 20%, transparent) 100%),
+    radial-gradient(ellipse at 50% 112%, color-mix(in oklab, var(--primary) 26%, transparent), transparent 70%);
+}
+
+.weather-current[data-condition="Clouds"]::after,
+.weather-current[data-condition="Rain"]::after,
+.weather-current[data-condition="Drizzle"]::after,
+.weather-current[data-condition="Thunderstorm"]::after {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.08) 18%, transparent 36%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 40%, color-mix(in oklab, var(--primary) 28%, transparent) 100%),
+    radial-gradient(ellipse at 50% 112%, color-mix(in oklab, var(--primary) 34%, transparent), transparent 72%);
+}
+
+.weather-current[data-condition="Snow"]::after,
+.weather-current[data-condition="Fog"]::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 46%, color-mix(in oklab, var(--primary) 20%, transparent) 100%),
+    radial-gradient(ellipse at 50% 112%, color-mix(in oklab, var(--primary) 24%, transparent), transparent 68%);
+}
+
 .weather-location {
   font-size: clamp(0.62rem, 5.7cqh, 0.92rem);
   line-height: 1.1;
@@ -877,6 +906,9 @@
   align-items: stretch;
   min-height: clamp(3rem, 36cqh, 4.55rem);
   padding: clamp(0.35rem, 3.2cqh, 0.7rem) clamp(0.45rem, 3.4cqw, 0.8rem);
+  background: color-mix(in oklab, var(--primary) 84%, var(--card));
+  color: var(--primary-foreground);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--primary-foreground) 10%, transparent);
 }
 
 .weather-forecast-day {
@@ -889,6 +921,7 @@
 }
 
 .weather-forecast-name {
+  color: color-mix(in oklab, var(--primary-foreground) 64%, transparent);
   font-size: clamp(0.55rem, 4.2cqh, 0.75rem);
   line-height: 1.1;
 }
@@ -899,18 +932,20 @@
   justify-content: center;
   gap: clamp(0.15rem, 1.4cqw, 0.3rem);
   min-height: 1.1em;
+  color: var(--primary-foreground);
   font-size: clamp(0.72rem, 5.8cqh, 1rem);
   line-height: 1.1;
 }
 
 .weather-forecast-low {
-  color: rgba(255, 255, 255, 0.48);
+  color: color-mix(in oklab, var(--primary-foreground) 48%, transparent);
   font-size: 0.78em;
   font-weight: 500;
 }
 
 .weather-forecast-precip {
   min-height: 1.05em;
+  color: color-mix(in oklab, var(--primary-foreground) 62%, var(--chart-1));
   font-size: clamp(0.52rem, 3.8cqh, 0.66rem);
   line-height: 1.05;
 }
@@ -921,7 +956,7 @@
   height: clamp(0.2rem, 1.7cqh, 0.36rem);
   overflow: hidden;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in oklab, var(--primary-foreground) 18%, transparent);
 }
 
 .weather-range-fill {
@@ -930,7 +965,11 @@
   bottom: 0;
   min-width: 0.35rem;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(96, 165, 250, 0.82), rgba(253, 224, 71, 0.92));
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--chart-2) 68%, var(--primary-foreground)),
+    color-mix(in oklab, var(--chart-1) 76%, var(--primary-foreground))
+  );
 }
 
 @container (max-height: 7.75rem) {

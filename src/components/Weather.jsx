@@ -388,7 +388,10 @@ function WeatherBox() {
   return (
     <div className="weather-widget group/weather flex h-full w-full flex-col rounded-[inherit] overflow-hidden">
       {/* Top section - Current weather */}
-      <div className={`weather-current relative flex min-h-0 flex-1 flex-col justify-between bg-gradient-to-br ${gradient}`}>
+      <div
+        className={`weather-current relative flex min-h-0 flex-1 flex-col justify-between bg-gradient-to-br ${gradient}`}
+        data-condition={condition}
+      >
         {/* Shader overlay */}
         <div className={`absolute inset-0 ${shaderOpacity} mix-blend-soft-light pointer-events-none`}>
           <NeuroNoise
@@ -446,7 +449,7 @@ function WeatherBox() {
       </div>
 
       {/* Bottom section - 5-day forecast */}
-      <div className="weather-forecast flex items-center justify-between bg-black/90">
+      <div className="weather-forecast flex items-center justify-between">
         {data.daily?.time?.map((date, i) => {
           const dayDate = new Date(date + "T00:00:00");
           const dayName = i === 0 ? "Today" : DAY_NAMES[dayDate.getDay()];
@@ -458,7 +461,7 @@ function WeatherBox() {
 
           return (
             <div key={date} className="weather-forecast-day flex min-w-0 flex-1 flex-col items-center">
-              <span className="weather-forecast-name font-medium text-white/60">{dayName}</span>
+              <span className="weather-forecast-name font-medium">{dayName}</span>
               <div className="weather-range-track">
                 <span
                   className="weather-range-fill"
@@ -468,11 +471,11 @@ function WeatherBox() {
                   }}
                 />
               </div>
-              <span className="weather-forecast-temp font-semibold text-white">
+              <span className="weather-forecast-temp font-semibold">
                 <span>{high}°</span>
                 <span className="weather-forecast-low">{low}°</span>
               </span>
-              <span className="weather-forecast-precip text-blue-300">{precip > 0 ? `${precip}%` : ""}</span>
+              <span className="weather-forecast-precip">{precip > 0 ? `${precip}%` : ""}</span>
             </div>
           );
         })}
