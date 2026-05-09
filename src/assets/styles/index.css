@@ -839,12 +839,18 @@
   container-type: size;
 }
 
+.weather-widget canvas {
+  display: block;
+}
+
 .weather-current {
-  padding: clamp(0.5rem, 6cqh, 1rem);
+  padding-block: clamp(0.5rem, 6cqh, 1rem);
+  padding-inline: clamp(0.75rem, 7cqw, 1.25rem);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.24);
 }
 
 .weather-location {
-  font-size: clamp(0.45rem, 4cqh, 0.625rem);
+  font-size: clamp(0.62rem, 5.7cqh, 0.92rem);
   line-height: 1.1;
   letter-spacing: 0.12em;
 }
@@ -856,8 +862,8 @@
 }
 
 .weather-desc {
-  max-width: min(42cqw, 8rem);
-  font-size: clamp(0.55rem, 5cqh, 0.875rem);
+  max-width: min(46cqw, 9.5rem);
+  font-size: clamp(0.66rem, 6cqh, 1rem);
   line-height: 1.15;
 }
 
@@ -868,33 +874,77 @@
 }
 
 .weather-forecast {
-  min-height: clamp(2.15rem, 28cqh, 3.75rem);
-  padding: clamp(0.25rem, 2.8cqh, 0.625rem) clamp(0.375rem, 4cqw, 0.75rem);
+  align-items: stretch;
+  min-height: clamp(3rem, 36cqh, 4.55rem);
+  padding: clamp(0.35rem, 3.2cqh, 0.7rem) clamp(0.45rem, 3.4cqw, 0.8rem);
 }
 
 .weather-forecast-day {
-  gap: clamp(0rem, 0.6cqh, 0.125rem);
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
+  justify-items: center;
+  gap: clamp(0.1rem, 1cqh, 0.22rem);
+  height: 100%;
 }
 
 .weather-forecast-name {
-  font-size: clamp(0.45rem, 3.6cqh, 0.625rem);
+  font-size: clamp(0.55rem, 4.2cqh, 0.75rem);
   line-height: 1.1;
 }
 
 .weather-forecast-temp {
-  font-size: clamp(0.6rem, 5cqh, 0.875rem);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(0.15rem, 1.4cqw, 0.3rem);
+  min-height: 1.1em;
+  font-size: clamp(0.72rem, 5.8cqh, 1rem);
   line-height: 1.1;
 }
 
+.weather-forecast-low {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.78em;
+  font-weight: 500;
+}
+
 .weather-forecast-precip {
-  font-size: clamp(0.45rem, 3.2cqh, 0.5625rem);
+  min-height: 1.05em;
+  font-size: clamp(0.52rem, 3.8cqh, 0.66rem);
   line-height: 1.05;
+}
+
+.weather-range-track {
+  position: relative;
+  width: min(80%, 3.8rem);
+  height: clamp(0.2rem, 1.7cqh, 0.36rem);
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.weather-range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 0.35rem;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(96, 165, 250, 0.82), rgba(253, 224, 71, 0.92));
 }
 
 @container (max-height: 7.75rem) {
   .weather-preview-link,
   .weather-meta {
     display: none;
+  }
+
+  .weather-forecast {
+    min-height: clamp(2.65rem, 34cqh, 3.35rem);
+  }
+
+  .weather-range-track {
+    height: clamp(0.15rem, 1.2cqh, 0.22rem);
   }
 }
 

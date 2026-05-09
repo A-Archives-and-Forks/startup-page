@@ -58,11 +58,11 @@ const PREVIEW_DATA = [
 ];
 
 const FORECAST = [
-  { day: "Today", high: 55, precip: 20 },
-  { day: "Tue", high: 58, precip: 0 },
-  { day: "Wed", high: 52, precip: 45 },
-  { day: "Thu", high: 61, precip: 10 },
-  { day: "Fri", high: 64, precip: 0 },
+  { day: "Today", high: 55, low: 42, precip: 20 },
+  { day: "Tue", high: 58, low: 44, precip: 0 },
+  { day: "Wed", high: 52, low: 39, precip: 45 },
+  { day: "Thu", high: 61, low: 47, precip: 10 },
+  { day: "Fri", high: 64, low: 51, precip: 0 },
 ];
 
 function RainDrops() {
@@ -178,9 +178,12 @@ function WeatherCard({ condition, time, phase, coverage, heavySnow, temp, desc, 
   const textColor = darkText ? "text-slate-800" : "text-white";
   const textColorMuted = darkText ? "text-slate-600" : "text-white/70";
   const shaderOpacity = condition === "Clear" && time === "day" ? "opacity-[0.12]" : "opacity-[0.3]";
+  const rangeMin = Math.min(...FORECAST.map((f) => f.low), ...FORECAST.map((f) => f.high));
+  const rangeMax = Math.max(...FORECAST.map((f) => f.low), ...FORECAST.map((f) => f.high));
+  const rangeSpan = Math.max(rangeMax - rangeMin, 1);
 
   return (
-    <div className="flex aspect-[16/9] min-h-40 w-full flex-col overflow-hidden rounded-lg shadow-lg">
+    <div className="weather-widget flex aspect-[16/9] min-h-40 w-full flex-col overflow-hidden rounded-lg shadow-lg">
       {/* Top section */}
       <div className={`relative flex flex-1 flex-col justify-between bg-gradient-to-br ${gradient} p-4`}>
         {/* Shader overlay — visible modern texture */}
@@ -231,14 +234,31 @@ function WeatherCard({ condition, time, phase, coverage, heavySnow, temp, desc, 
       </div>
 
       {/* Bottom forecast */}
-      <div className="flex items-center justify-between bg-black/90 px-3 py-2.5">
-        {FORECAST.map((f) => (
-          <div key={f.day} className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-            <span className="text-[10px] font-medium text-white/60">{f.day}</span>
-            <span className="text-sm font-semibold text-white">{f.high}°</span>
-            {f.precip > 0 && <span className="text-[9px] text-blue-300">{f.precip}%</span>}
+      <div className="weather-forecast flex items-center justify-between bg-black/90">
+        {FORECAST.map((f) => {
+          const rangeLeft = ((f.low - rangeMin) / rangeSpan) * 100;
+          const rangeWidth = Math.max(((f.high - f.low) / rangeSpan) * 100, 8);
+
+          return (
+          <div key={f.day} className="weather-forecast-day flex min-w-0 flex-1 flex-col items-center">
+            <span className="weather-forecast-name font-medium text-white/60">{f.day}</span>
+            <div className="weather-range-track">
+              <span
+                className="weather-range-fill"
+                style={{
+                  left: `${rangeLeft}%`,
+                  width: `${Math.min(rangeWidth, 100 - rangeLeft)}%`,
+                }}
+              />
+            </div>
+            <span className="weather-forecast-temp font-semibold text-white">
+              <span>{f.high}°</span>
+              <span className="weather-forecast-low">{f.low}°</span>
+            </span>
+            <span className="weather-forecast-precip text-blue-300">{f.precip > 0 ? `${f.precip}%` : ""}</span>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
