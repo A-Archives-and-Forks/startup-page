@@ -34,11 +34,11 @@ class Clock extends React.Component {
     
   render() {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center text-center">
-        <div className="font-black text-foreground">
+      <div className="clock-widget flex h-full w-full flex-col items-center justify-center text-center">
+        <div className="clock-time font-black text-foreground">
           {this.state.date}
         </div>
-        <div className="font-black text-foreground/80">
+        <div className="clock-day font-black text-foreground/80">
           {this.state.day}
         </div>
       </div>

@@ -835,6 +835,360 @@
     radial-gradient(ellipse at 50% 105%, rgba(255, 255, 255, 0.3), transparent 62%);
 }
 
+.weather-widget {
+  container-type: size;
+}
+
+.weather-current {
+  padding: clamp(0.5rem, 6cqh, 1rem);
+}
+
+.weather-location {
+  font-size: clamp(0.45rem, 4cqh, 0.625rem);
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+}
+
+.weather-temp {
+  margin-top: clamp(0.0625rem, 1cqh, 0.25rem);
+  font-size: clamp(1.45rem, 18cqh, 2.25rem);
+  line-height: 0.95;
+}
+
+.weather-desc {
+  max-width: min(42cqw, 8rem);
+  font-size: clamp(0.55rem, 5cqh, 0.875rem);
+  line-height: 1.15;
+}
+
+.weather-meta,
+.weather-preview-link {
+  font-size: clamp(0.45rem, 3.6cqh, 0.625rem);
+  line-height: 1.1;
+}
+
+.weather-forecast {
+  min-height: clamp(2.15rem, 28cqh, 3.75rem);
+  padding: clamp(0.25rem, 2.8cqh, 0.625rem) clamp(0.375rem, 4cqw, 0.75rem);
+}
+
+.weather-forecast-day {
+  gap: clamp(0rem, 0.6cqh, 0.125rem);
+}
+
+.weather-forecast-name {
+  font-size: clamp(0.45rem, 3.6cqh, 0.625rem);
+  line-height: 1.1;
+}
+
+.weather-forecast-temp {
+  font-size: clamp(0.6rem, 5cqh, 0.875rem);
+  line-height: 1.1;
+}
+
+.weather-forecast-precip {
+  font-size: clamp(0.45rem, 3.2cqh, 0.5625rem);
+  line-height: 1.05;
+}
+
+@container (max-height: 7.75rem) {
+  .weather-preview-link,
+  .weather-meta {
+    display: none;
+  }
+}
+
+.search-widget,
+.bookmark-widget {
+  container-type: size;
+}
+
+.clock-widget {
+  container-type: size;
+  gap: clamp(0.05rem, 1.2cqh, 0.25rem);
+  padding: clamp(0.35rem, 4cqh, 0.75rem);
+}
+
+.clock-time {
+  max-width: 100%;
+  font-size: clamp(0.95rem, 14cqw, 1.85rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.clock-day {
+  max-width: 100%;
+  font-size: clamp(0.65rem, 8cqw, 1.1rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.headlines-hero,
+.rss-feed {
+  container-type: size;
+}
+
+.headlines-hero {
+  padding: clamp(0.5rem, 4cqh, 1.5rem);
+}
+
+.headlines-topbar {
+  left: clamp(0.5rem, 4cqw, 1rem);
+  right: clamp(0.5rem, 4cqw, 1rem);
+  top: clamp(0.5rem, 4cqh, 1rem);
+  gap: clamp(0.35rem, 2cqw, 0.75rem);
+}
+
+.headlines-pill {
+  max-width: 45cqw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: clamp(0.18rem, 1.4cqh, 0.25rem) clamp(0.45rem, 3cqw, 0.75rem);
+  font-size: clamp(0.45rem, 2.8cqh, 0.6875rem);
+  letter-spacing: 0.14em;
+}
+
+.headlines-controls {
+  gap: clamp(0.25rem, 1.8cqw, 0.5rem);
+}
+
+.headlines-nav {
+  padding: clamp(0.25rem, 2.2cqh, 0.5rem);
+}
+
+.headlines-nav svg {
+  width: clamp(0.7rem, 4cqh, 1rem);
+  height: clamp(0.7rem, 4cqh, 1rem);
+}
+
+.headlines-bottom {
+  padding: clamp(0.5rem, 4cqh, 1rem);
+}
+
+.headlines-card {
+  padding: clamp(0.5rem, 4cqh, 1rem);
+  border-radius: clamp(0.75rem, 4cqh, 1.4rem);
+}
+
+.headlines-kicker,
+.headlines-meta {
+  font-size: clamp(0.45rem, 2.8cqh, 0.6875rem);
+  letter-spacing: 0.12em;
+}
+
+.headlines-empty {
+  margin-top: clamp(0.25rem, 2cqh, 0.5rem);
+  font-size: clamp(0.75rem, 5cqh, 1.25rem);
+  line-height: 1.1;
+}
+
+.headlines-title {
+  display: -webkit-box;
+  margin-top: clamp(0.35rem, 2.6cqh, 0.75rem);
+  overflow: hidden;
+  font-size: clamp(0.78rem, 4.8cqh, 1.125rem);
+  line-height: 1.12;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.headlines-progress {
+  margin-top: clamp(0.35rem, 3cqh, 1rem);
+  height: clamp(0.2rem, 1.4cqh, 0.375rem);
+}
+
+@container (max-height: 13rem) {
+  .headlines-meta {
+    display: none;
+  }
+
+  .headlines-title {
+    -webkit-line-clamp: 2;
+  }
+}
+
+.rss-feed {
+  padding: clamp(0.5rem, 4cqh, 1.5rem);
+}
+
+.rss-title {
+  font-size: clamp(0.7rem, 4cqh, 0.875rem);
+}
+
+.rss-subtitle {
+  margin-top: clamp(0.15rem, 1.2cqh, 0.25rem);
+  font-size: clamp(0.55rem, 3.2cqh, 0.75rem);
+}
+
+.rss-header {
+  gap: clamp(0.3rem, 2cqw, 0.5rem);
+  padding: clamp(0.35rem, 2.6cqh, 0.625rem) clamp(0.5rem, 3cqw, 1rem);
+}
+
+.rss-feed-icon {
+  width: clamp(0.75rem, 4cqh, 1rem);
+  height: clamp(0.75rem, 4cqh, 1rem);
+}
+
+.rss-feed-title {
+  font-size: clamp(0.45rem, 2.8cqh, 0.625rem);
+  letter-spacing: 0.12em;
+}
+
+.rss-item {
+  gap: clamp(0.35rem, 2cqw, 0.75rem);
+  padding: clamp(0.4rem, 3cqh, 0.75rem) clamp(0.5rem, 3cqw, 1rem);
+}
+
+.rss-thumbnail {
+  margin-top: clamp(0rem, 0.5cqh, 0.125rem);
+  width: clamp(1.75rem, 11cqh, 2.5rem);
+  height: clamp(1.75rem, 11cqh, 2.5rem);
+}
+
+.rss-item-title {
+  font-size: clamp(0.58rem, 3.6cqh, 0.75rem);
+}
+
+.rss-item-meta {
+  margin-top: clamp(0.15rem, 1.4cqh, 0.25rem);
+  gap: clamp(0.25rem, 1.6cqw, 0.5rem);
+  font-size: clamp(0.45rem, 2.8cqh, 0.625rem);
+}
+
+@container (max-height: 13rem) {
+  .rss-item-meta {
+    display: none;
+  }
+
+  .rss-thumbnail {
+    display: none;
+  }
+}
+
+.settings-dialog [data-slot="card-content"] {
+  line-height: 1.35;
+}
+
+.settings-dialog [data-slot="card-content"] .rounded-xl {
+  border-radius: 0.625rem;
+}
+
+.settings-dialog [data-slot="card-content"] .p-4 {
+  padding: 0.625rem;
+}
+
+.settings-dialog [data-slot="card-content"] .px-4 {
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+}
+
+.settings-dialog [data-slot="card-content"] .py-3 {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+.settings-dialog [data-slot="card-content"] .gap-4 {
+  gap: 0.625rem;
+}
+
+.settings-dialog [data-slot="card-content"] .gap-6 {
+  gap: 0.75rem;
+}
+
+.settings-dialog [data-slot="card-content"] .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+}
+
+.settings-dialog [data-slot="card-content"] p.text-sm {
+  font-size: 0.6875rem;
+}
+
+.settings-dialog [data-slot="card-content"] .text-base {
+  font-size: 0.8125rem;
+}
+
+.settings-dialog [data-slot="card-content"] .text-sm {
+  font-size: 0.75rem;
+}
+
+.settings-dialog [data-slot="card-description"] {
+  line-height: 1.25;
+}
+
+.search-inner {
+  width: min(82cqw, 15rem);
+}
+
+.search-engines {
+  gap: clamp(0.5rem, 6cqw, 2rem);
+  padding-top: clamp(0.25rem, 7cqh, 2rem);
+  padding-bottom: clamp(0.375rem, 4cqh, 1rem);
+}
+
+.search-engine-button {
+  width: clamp(1.75rem, 18cqh, 2.5rem);
+  height: clamp(1.75rem, 18cqh, 2.5rem);
+  background-size: clamp(1rem, 10cqh, 1.75rem) clamp(1rem, 10cqh, 1.75rem);
+}
+
+.search-input {
+  width: 100%;
+  height: clamp(1.8rem, 16cqh, 2.25rem);
+  padding-inline: clamp(0.5rem, 4cqw, 0.75rem);
+  font-size: clamp(0.7rem, 6cqh, 0.875rem);
+}
+
+.bookmark-header {
+  padding: clamp(0.35rem, 4cqh, 0.625rem) clamp(0.5rem, 5cqw, 0.75rem);
+}
+
+.bookmark-title {
+  margin-top: 0;
+  font-size: clamp(0.62rem, 6cqh, 0.875rem);
+}
+
+.bookmark-list {
+  padding: clamp(0.25rem, 3cqh, 0.5rem) clamp(0.3rem, 3cqw, 0.5rem);
+}
+
+.bookmark-items {
+  display: grid;
+  gap: clamp(0.0625rem, 1cqh, 0.25rem);
+}
+
+.bookmark-link {
+  gap: clamp(0.25rem, 3cqw, 0.5rem);
+  padding: clamp(0.2rem, 2.2cqh, 0.375rem) clamp(0.3rem, 3cqw, 0.5rem);
+}
+
+.bookmark-favicon {
+  width: clamp(0.625rem, 6cqh, 0.875rem);
+  height: clamp(0.625rem, 6cqh, 0.875rem);
+}
+
+.bookmark-name {
+  font-size: clamp(0.55rem, 5cqh, 0.75rem);
+}
+
+.bookmark-host {
+  margin-top: clamp(0rem, 0.8cqh, 0.125rem);
+  font-size: clamp(0.45rem, 3.6cqh, 0.625rem);
+}
+
+@container (max-height: 7.75rem) {
+  .bookmark-host {
+    display: none;
+  }
+
+  .bookmark-link {
+    padding-block: clamp(0.15rem, 1.7cqh, 0.25rem);
+  }
+}
+
 .weather-sky {
   --sky-glow-1: rgba(255, 255, 255, 0.36);
   --sky-glow-2: rgba(125, 178, 235, 0.28);

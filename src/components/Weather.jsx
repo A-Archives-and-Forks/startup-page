@@ -322,9 +322,9 @@ function WeatherBox() {
   const shaderOpacity = condition === "Clear" && dayTime ? "opacity-[0.12]" : "opacity-[0.3]";
 
   return (
-    <div className="group/weather flex h-full w-full flex-col rounded-[inherit] overflow-hidden">
+    <div className="weather-widget group/weather flex h-full w-full flex-col rounded-[inherit] overflow-hidden">
       {/* Top section - Current weather */}
-      <div className={`relative flex flex-1 flex-col justify-between bg-gradient-to-br ${gradient} p-4`}>
+      <div className={`weather-current relative flex min-h-0 flex-1 flex-col justify-between bg-gradient-to-br ${gradient}`}>
         {/* Shader overlay */}
         <div className={`absolute inset-0 ${shaderOpacity} mix-blend-soft-light pointer-events-none`}>
           <NeuroNoise
@@ -350,20 +350,20 @@ function WeatherBox() {
         {((condition === "Clear" && !dayTime) || (condition === "Clouds" && !dayTime && cloudCoverage === "partly")) && <Stars />}
 
         {/* Weather content */}
-        <div className="relative z-10 flex items-start justify-between">
-          <div>
-            <p className={`text-[10px] font-semibold uppercase tracking-widest ${textColorMuted}`}>
+        <div className="relative z-10 flex min-h-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className={`weather-location truncate font-semibold uppercase ${textColorMuted}`}>
               {location}
             </p>
-            <p className={`mt-1 text-4xl font-bold tracking-tight ${textColor}`}>
+            <p className={`weather-temp font-bold tracking-tight ${textColor}`}>
               {temperature}°
             </p>
           </div>
-          <div className="text-right">
-            <p className={`text-sm font-medium ${textColor}`}>
+          <div className="min-w-0 text-right">
+            <p className={`weather-desc truncate font-medium ${textColor}`}>
               {mapped.description}
             </p>
-            <p className={`mt-0.5 text-[10px] ${textColorMuted}`}>
+            <p className={`weather-meta truncate ${textColorMuted}`}>
               °{unitLabel} · Open-Meteo
             </p>
           </div>
@@ -373,7 +373,7 @@ function WeatherBox() {
         <div className="relative z-10 flex justify-end">
           <a
             href="#/weather-preview"
-            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium opacity-0 transition-opacity group-hover/weather:opacity-100 ${darkText ? "text-slate-600 hover:bg-black/5" : "text-white/50 hover:bg-white/10"}`}
+            className={`weather-preview-link flex items-center gap-1 rounded px-1.5 py-0.5 font-medium opacity-0 transition-opacity group-hover/weather:opacity-100 ${darkText ? "text-slate-600 hover:bg-black/5" : "text-white/50 hover:bg-white/10"}`}
           >
             Preview all
             <HiArrowTopRightOnSquare className="h-2.5 w-2.5" />
@@ -382,7 +382,7 @@ function WeatherBox() {
       </div>
 
       {/* Bottom section - 5-day forecast */}
-      <div className="flex items-center justify-between bg-black/90 px-3 py-2.5">
+      <div className="weather-forecast flex items-center justify-between bg-black/90">
         {data.daily?.time?.map((date, i) => {
           const dayDate = new Date(date + "T00:00:00");
           const dayName = i === 0 ? "Today" : DAY_NAMES[dayDate.getDay()];
@@ -390,10 +390,10 @@ function WeatherBox() {
           const precip = data.daily.precipitation_probability_max?.[i] ?? 0;
 
           return (
-            <div key={date} className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-              <span className="text-[10px] font-medium text-white/60">{dayName}</span>
-              <span className="text-sm font-semibold text-white">{high}°</span>
-              {precip > 0 && <span className="text-[9px] text-blue-300">{precip}%</span>}
+            <div key={date} className="weather-forecast-day flex min-w-0 flex-1 flex-col items-center">
+              <span className="weather-forecast-name font-medium text-white/60">{dayName}</span>
+              <span className="weather-forecast-temp font-semibold text-white">{high}°</span>
+              {precip > 0 && <span className="weather-forecast-precip text-blue-300">{precip}%</span>}
             </div>
           );
         })}

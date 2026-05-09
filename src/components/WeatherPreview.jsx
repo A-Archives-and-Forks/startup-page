@@ -180,7 +180,7 @@ function WeatherCard({ condition, time, phase, coverage, heavySnow, temp, desc, 
   const shaderOpacity = condition === "Clear" && time === "day" ? "opacity-[0.12]" : "opacity-[0.3]";
 
   return (
-    <div className="flex h-[200px] w-full flex-col overflow-hidden rounded-lg shadow-lg">
+    <div className="flex aspect-[16/9] min-h-40 w-full flex-col overflow-hidden rounded-lg shadow-lg">
       {/* Top section */}
       <div className={`relative flex flex-1 flex-col justify-between bg-gradient-to-br ${gradient} p-4`}>
         {/* Shader overlay — visible modern texture */}

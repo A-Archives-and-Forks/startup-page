@@ -104,7 +104,7 @@ export default function HeadlinesHero() {
 
   if (status === "loading") {
     return (
-      <div className="flex h-full w-full items-end overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--color-primary)_30%,transparent),transparent_40%),linear-gradient(160deg,color-mix(in_oklab,var(--color-card)_88%,black_12%),color-mix(in_oklab,var(--color-accent)_35%,var(--color-card)))] p-6">
+      <div className="headlines-hero flex h-full w-full items-end overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_color-mix(in_oklab,var(--color-primary)_30%,transparent),transparent_40%),linear-gradient(160deg,color-mix(in_oklab,var(--color-card)_88%,black_12%),color-mix(in_oklab,var(--color-accent)_35%,var(--color-card)))]">
         <div className="w-full space-y-3">
           <div className="h-3 w-24 rounded-full bg-white/20" />
           <div className="h-8 w-4/5 rounded-full bg-white/25" />
@@ -116,10 +116,10 @@ export default function HeadlinesHero() {
 
   if (!articles.length) {
     return (
-      <div className="flex h-full w-full items-end overflow-hidden rounded-[inherit] bg-[linear-gradient(160deg,color-mix(in_oklab,var(--color-secondary)_55%,var(--color-card)),color-mix(in_oklab,var(--color-accent)_35%,var(--color-card)))] p-6">
-        <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-white backdrop-blur-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Headlines</p>
-          <p className="mt-2 text-xl font-semibold">No image-led headlines available right now.</p>
+      <div className="headlines-hero flex h-full w-full items-end overflow-hidden rounded-[inherit] bg-[linear-gradient(160deg,color-mix(in_oklab,var(--color-secondary)_55%,var(--color-card)),color-mix(in_oklab,var(--color-accent)_35%,var(--color-card)))]">
+        <div className="headlines-card rounded-2xl border border-white/10 bg-black/25 text-white backdrop-blur-sm">
+          <p className="headlines-kicker font-semibold uppercase text-white/70">Headlines</p>
+          <p className="headlines-empty font-semibold">No image-led headlines available right now.</p>
         </div>
       </div>
     );
@@ -142,18 +142,18 @@ export default function HeadlinesHero() {
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.38)_34%,rgba(2,6,23,0.9)_100%)]" />
 
-      <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-        <div className="rounded-full border border-white/25 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] !text-white backdrop-blur-md" style={{ color: "#ffffff" }}>
+      <div className="headlines-topbar absolute flex items-center justify-between">
+        <div className="headlines-pill rounded-full border border-white/25 bg-white/8 font-semibold uppercase !text-white backdrop-blur-md" style={{ color: "#ffffff" }}>
           {subreddit}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="headlines-controls flex items-center">
           <button
             type="button"
             onClick={(event) => {
               event.preventDefault();
               changeArticle(-1);
             }}
-            className="rounded-full border border-white/25 bg-white/8 p-2 !text-white backdrop-blur-md transition hover:bg-white/14"
+            className="headlines-nav rounded-full border border-white/25 bg-white/8 !text-white backdrop-blur-md transition hover:bg-white/14"
             aria-label="Previous headline"
           >
             <HiChevronLeft className="size-4" />
@@ -164,7 +164,7 @@ export default function HeadlinesHero() {
               event.preventDefault();
               changeArticle(1);
             }}
-            className="rounded-full border border-white/25 bg-white/8 p-2 !text-white backdrop-blur-md transition hover:bg-white/14"
+            className="headlines-nav rounded-full border border-white/25 bg-white/8 !text-white backdrop-blur-md transition hover:bg-white/14"
             aria-label="Next headline"
           >
             <HiChevronRight className="size-4" />
@@ -172,16 +172,16 @@ export default function HeadlinesHero() {
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 p-4">
-        <div className="overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/8 p-4 !text-white shadow-xl backdrop-blur-xl" style={{ color: "#ffffff" }}>
-          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] !text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]" style={{ color: "#ffffff" }}>
+      <div className="headlines-bottom absolute inset-x-0 bottom-0">
+        <div className="headlines-card overflow-hidden rounded-[1.4rem] border border-white/20 bg-white/8 !text-white shadow-xl backdrop-blur-xl" style={{ color: "#ffffff" }}>
+          <div className="headlines-meta flex items-center justify-between gap-3 uppercase !text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]" style={{ color: "#ffffff" }}>
             <span style={{ color: "#ffffff" }}>{article.source}</span>
             <span style={{ color: "#ffffff" }}>{article.publishedLabel}</span>
           </div>
-          <h2 className="mt-3 max-w-3xl text-base font-semibold leading-tight !text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.82)] md:text-lg" style={{ color: "#ffffff" }}>
+          <h2 className="headlines-title max-w-3xl font-semibold leading-tight !text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.82)]" style={{ color: "#ffffff" }}>
             {article.title}
           </h2>
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
+          <div className="headlines-progress overflow-hidden rounded-full bg-white/20">
             <div
               key={progressKey}
               className="h-full rounded-full bg-white/85 animate-[headline-progress_var(--headline-duration)_linear_forwards]"
