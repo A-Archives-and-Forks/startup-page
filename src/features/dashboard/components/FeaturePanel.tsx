@@ -6,6 +6,8 @@ import TimerBox from "./TimerBox";
 import Windy from "@/features/weather/components/Windy";
 import Upsplash from "@/features/media/components/Unsplash";
 import AirQuality from "@/features/weather/components/AirQuality";
+import WeatherDayDetail from "@/features/weather/components/WeatherDayDetail";
+import { useWeatherStore } from "@/features/weather/stores/weatherStore";
 import WikipediaToD from "./WikipediaToD";
 import RSSFeed from "./RSSFeed";
 import GitHubActivity from "./GitHubActivity";
@@ -38,6 +40,7 @@ function FeatureContent({ mode, settings }) {
 
 export default function FeaturePanel() {
   const settings = React.useMemo(() => readSettings(), []);
+  const { selectedDay, setSelectedDay } = useWeatherStore();
   const enabledKeys = settings.featurePanel?.enabledModes;
   const FEATURE_MODES = enabledKeys?.length
     ? ALL_MODES.filter((m) => enabledKeys.includes(m.key))
@@ -65,6 +68,15 @@ export default function FeaturePanel() {
 
   return (
     <div className="relative h-full w-full overflow-visible rounded-[inherit]">
+      {selectedDay ? (
+        <WeatherDayDetail
+          day={selectedDay.day}
+          unit={selectedDay.unit}
+          mode={selectedDay.mode}
+          onClose={() => setSelectedDay(null)}
+        />
+      ) : (
+        <>
       {/* All panels are mounted at once so they pre-fetch. CSS hides inactive ones. */}
       <div className="h-full w-full overflow-hidden rounded-[inherit]">
         {FEATURE_MODES.map((mode) => (
@@ -111,6 +123,8 @@ export default function FeaturePanel() {
           />
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { hydrateSettingsFromIndexedDb } from "@/lib/settings";
 
 // views without layouts
 import IndexPage from "@/features/dashboard/pages";
+import WeatherPreviewPage from "@/pages/WeatherPreview";
 
 void hydrateSettingsFromIndexedDb().finally(() => {
   const rootElement = document.getElementById("root");
@@ -19,6 +20,7 @@ void hydrateSettingsFromIndexedDb().finally(() => {
       <HashRouter>
         <Routes>
           <Route path="/" element={<IndexPage />} />
+          <Route path="/weather-preview" element={<WeatherPreviewPage />} />
         </Routes>
       </HashRouter>
     </StrictMode>

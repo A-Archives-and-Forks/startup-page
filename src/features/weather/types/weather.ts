@@ -10,6 +10,35 @@ export type WeatherCondition =
 export type CloudCoverage = "none" | "partly" | "full" | "storm";
 export type TimeKey = "day" | "night";
 export type WeatherPhase = number | "storm";
+export type CloudStyle =
+  | "clear"
+  | "cumulus"
+  | "stratocumulus"
+  | "stratus"
+  | "nimbostratus"
+  | "cumulonimbus"
+  | "supercell";
+export type PrecipitationStyle =
+  | "none"
+  | "drizzle"
+  | "rain"
+  | "heavy-rain"
+  | "shower-rain"
+  | "freezing-rain"
+  | "snow"
+  | "heavy-snow"
+  | "sleet";
+export type AtmosphereStyle =
+  | "none"
+  | "mist"
+  | "smoke"
+  | "haze"
+  | "dust"
+  | "sand"
+  | "fog"
+  | "ash"
+  | "squall"
+  | "tornado";
 
 export interface OpenWeatherCurrent {
   id: number;
@@ -34,7 +63,27 @@ export interface WeatherData {
     sunrise?: string[];
     sunset?: string[];
   };
+  hourly?: {
+    time?: string[];
+    relative_humidity_2m?: number[];
+    uv_index?: number[];
+    wind_speed_10m?: number[];
+    wind_direction_10m?: number[];
+    precipitation_probability?: number[];
+    precipitation?: number[];
+  };
   openWeather?: OpenWeatherCurrent;
+}
+
+export interface HourlyForecastPoint {
+  time: string;
+  hourLabel: string;
+  humidity: number | null;
+  uvIndex: number | null;
+  windSpeed: number | null;
+  windDirection: number | null;
+  precipitationProbability: number | null;
+  precipitation: number | null;
 }
 
 export interface ForecastDay {
@@ -43,6 +92,23 @@ export interface ForecastDay {
   high: number;
   low: number;
   precip: number;
+  hourly: HourlyForecastPoint[];
+}
+
+export interface WeatherVisualProfile {
+  weatherId: number;
+  cloudStyle: CloudStyle;
+  precipitationStyle: PrecipitationStyle;
+  atmosphereStyle: AtmosphereStyle;
+  precipitationIntensity: number;
+  atmosphereIntensity: number;
+  lightningIntensity: number;
+  windIntensity: number;
+  visibility: number;
+  surfaceWetness: number;
+  skyTint: string;
+  cloudContrast: number;
+  promptKeywords: string[];
 }
 
 export interface ResolvedWeather {
@@ -56,8 +122,14 @@ export interface ResolvedWeather {
   unitLabel: string;
   description: string;
   gradient: string;
+  skyGradient: string;
   shaderColors: [string, string, string];
   shaderOpacity: string;
+  skyDarkness: number;
+  horizonGlow: number;
+  showAurora: boolean;
+  auroraIntensity: number;
+  visual: WeatherVisualProfile;
   darkText: boolean;
   textColor: string;
   textColorMuted: string;

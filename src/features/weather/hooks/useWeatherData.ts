@@ -10,7 +10,9 @@ async function fetchOpenMeteo(lat: number, lon: number, unit: string): Promise<P
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&current=temperature_2m,weather_code,is_day` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
-    `&temperature_unit=${tempUnit}&timezone=auto&forecast_days=5`;
+    `&hourly=relative_humidity_2m,uv_index,wind_speed_10m,wind_direction_10m,precipitation_probability,precipitation` +
+    `&temperature_unit=${tempUnit}&wind_speed_unit=${unit === "imperial" ? "mph" : "kmh"}` +
+    `&precipitation_unit=${unit === "imperial" ? "inch" : "mm"}&timezone=auto&forecast_days=5`;
   const res  = await fetch(url);
   const json = (await res.json()) as Partial<WeatherData>;
   if (!res.ok) throw new Error("Open-Meteo request failed");
