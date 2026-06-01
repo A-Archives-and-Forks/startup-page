@@ -6,6 +6,9 @@ node_modules
 
 # config files
 .env
+.env.development
+.env.production
+.env.staging
 
 # media files
 *.mp4

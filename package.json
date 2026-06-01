@@ -2,11 +2,12 @@
   "name": "start-page",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.15.1",
+  "packageManager": "pnpm@11.2.2",
   "engines": {
-    "node": "20.x"
+    "node": ">=22"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.6",
     "@headlessui/react": "^2.2.10",
     "@paper-design/shaders-react": "^0.0.76",
     "@radix-ui/react-dialog": "^1.1.15",

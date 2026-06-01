@@ -346,10 +346,14 @@ export async function writeSettings(settings) {
   writeSettingsToLocalStorage(mergedSettings);
   Cookies.remove(SETTINGS_COOKIE_KEY);
   const record = await writeSettingsToIndexedDb(mergedSettings);
-  return {
-    settings: mergedSettings,
-    updatedAt: record?.updatedAt || new Date().toISOString(),
-  };
+  const updatedAt = record?.updatedAt || new Date().toISOString();
+
+  // Dynamic import avoids a circular module graph (cloudSync → auth/stores, not settings)
+  void import("@/lib/cloudSync").then(({ schedulePushToCloud }) => {
+    schedulePushToCloud(mergedSettings as Record<string, unknown>, updatedAt);
+  });
+
+  return { settings: mergedSettings, updatedAt };
 }
 
 export async function resetSettings() {
@@ -372,6 +376,34 @@ export async function hydrateSettingsFromIndexedDb() {
 
   writeSettingsToLocalStorage(indexedDbRecord.settings);
   return indexedDbRecord.settings;
+}
+
+/**
+ * Cloud-aware hydration used on app startup.
+ * If the user is signed in with an active subscription, pulls from the cloud
+ * and overwrites local storage when the cloud copy is newer. Falls back to
+ * IndexedDB on any error or when cloud sync is not available.
+ */
+export async function hydrateSettings() {
+  const { useAuthStore } = await import("@/features/auth/stores");
+  const authState = useAuthStore.getState();
+
+  if (authState.hasSyncAccess()) {
+    try {
+      const { pullSettingsFromCloud } = await import("@/lib/cloudSync");
+      const cloudResult = await pullSettingsFromCloud();
+      if (cloudResult) {
+        const normalized = normalizeSettingsShape(cloudResult.settings);
+        writeSettingsToLocalStorage(normalized);
+        void writeSettingsToIndexedDb(normalized);
+        return normalized;
+      }
+    } catch {
+      // Fall through to local
+    }
+  }
+
+  return hydrateSettingsFromIndexedDb();
 }
 
 export async function getStorageDiagnostics() {

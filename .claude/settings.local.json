@@ -3,7 +3,13 @@
     "allow": [
       "Bash(mkdir -p src/hooks src/assets/media src/pages)",
       "Bash(git mv *)",
-      "Bash(rmdir src/views src/utils)"
+      "Bash(rmdir src/views src/utils)",
+      "Bash(xargs grep -l \"useSettingsStore\\\\|SettingsStore\")",
+      "Bash(pnpm add *)",
+      "Bash(C:\\\\Program Files\\\\nodejs\\\\node.exe *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(cmd /c \"node --version\" 2>&1)",
+      "PowerShell($env:PATH -split ';')"
     ]
   }
 }

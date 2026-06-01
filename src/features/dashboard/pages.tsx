@@ -31,6 +31,9 @@ import Toggle from "@/components/layout/ThemeToggle";
 import ThemeProvider from "@/components/layout/ThemeContext";
 import Bookmark, { faviconFallbackLabel, faviconSrcSet, faviconUrl, isSelfHostedUrl, LocalServiceStatus } from "@/features/bookmarks/components/Bookmark";
 import SettingsButton from "@/features/settings/components/SettingsButton";
+import AccountButton from "@/features/auth/AccountButton";
+import AuthBridge from "@/features/auth/AuthBridge";
+import { useIsClerkAvailable } from "@/features/auth/ClerkStatus";
 import CommandPalette from "@/components/layout/CommandPalette";
 import useKBarActions from "@/features/dashboard/hooks/useKBarActions";
 import { useStartupNavigation } from "@/features/dashboard/hooks/useStartupNavigation";
@@ -1227,6 +1230,7 @@ function BookmarkView({
 }
 
 export default function Index() {
+  const isClerkAvailable = useIsClerkAvailable();
   const settings = useSettingsStore((state) => state.settings);
   const persistSettingsToStore = useSettingsStore((state) => state.persistSettings);
   const hiddenBoxes = settings.layout?.hiddenBoxes || {};
@@ -1942,6 +1946,7 @@ export default function Index() {
 
   return (
     <ThemeProvider initialThemeMode={ui.themeMode} initialThemePalette={ui.themePalette} initialCustomThemeVars={initialCustomThemeVars}>
+      {isClerkAvailable && <AuthBridge />}
       <KBarProvider>
         <KBarWrapper>
       <VaultNavigationActions
@@ -1991,6 +1996,7 @@ export default function Index() {
         </nav>
         <div className="fixed right-5 top-5 z-40 flex items-center gap-3 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">
           <Toggle />
+          {isClerkAvailable && <AccountButton />}
           <SettingsButton />
         </div>
         <div className={`flex min-h-screen items-center justify-center px-4 pb-10 pt-28 transition-all duration-500 ease-in-out ${bookmarksOpen ? "-translate-x-full opacity-0" : readOpen ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"}`}>
