@@ -1,5 +1,4 @@
 import {
-  OPEN_METEO_CODES,
   CONDITION_GRADIENTS,
   SHADER_COLORS,
   DAY_NAMES,
@@ -476,21 +475,16 @@ export function resolveWeather(
   data: WeatherData,
   clockTime: number
 ): ResolvedWeather {
-  const weatherCode = data.current?.weather_code ?? 3;
   const ow = data.openWeather;
-  const mapped = ow ?? OPEN_METEO_CODES[weatherCode] ?? { weather: "Clouds" as WeatherCondition, description: "Current conditions" };
+  const mapped = ow ?? { weather: "Clouds" as WeatherCondition, description: "Current conditions" };
 
   const condition = getConditionCategory(mapped.weather);
   const timePhase = getTimePhase(data, clockTime);
   const dayTime   = timePhase < 1.5;
   const timeKey: TimeKey = dayTime ? "day" : "night";
 
-  const coverage: CloudCoverage = ow
-    ? getOpenWeatherCoverage(ow.id)
-    : getOpenMeteoCoverage(weatherCode);
-  const visual = ow
-    ? getOpenWeatherVisualProfile(ow.id)
-    : getOpenMeteoVisualProfile(weatherCode);
+  const coverage: CloudCoverage = ow ? getOpenWeatherCoverage(ow.id) : "none";
+  const visual = ow ? getOpenWeatherVisualProfile(ow.id) : getOpenWeatherVisualProfile(804);
 
   // For the VolumetricCloudscape phase prop
   const phase = coverage === "storm" ? "storm" : timePhase;
@@ -499,9 +493,7 @@ export function resolveWeather(
   const skyGradient  = getSkyGradient(condition, timePhase);
   const shaderColors = SHADER_COLORS[condition]?.[timeKey]       ?? SHADER_COLORS.Clouds.day;
 
-  const isHeavySnow = ow
-    ? [602, 622].includes(ow.id)
-    : [75, 86].includes(weatherCode);
+  const isHeavySnow = ow ? [602, 622].includes(ow.id) : false;
 
   const shaderOpacity = condition === "Clear" && dayTime ? "opacity-[0.12]" : "opacity-[0.3]";
   const skyDarkness = getSkyDarkness(timePhase, condition);

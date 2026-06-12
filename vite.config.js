@@ -15,5 +15,19 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("/react-router")) {
+            return "vendor-react";
+          }
+          if (id.includes("/kbar/") || id.includes("/@headlessui/") || id.includes("/@radix-ui/")) {
+            return "vendor-ui";
+          }
+          return undefined;
+        },
+      },
+    },
   }
 })

@@ -1,28 +1,40 @@
-import { StrictMode } from "react";
+import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import "@/assets/styles/index.css";
 import { hydrateSettingsFromIndexedDb } from "@/lib/settings";
+import { useSettingsStore } from "@/features/settings/stores";
 
-// views without layouts
-import IndexPage from "@/features/dashboard/pages";
-import WeatherPreviewPage from "@/pages/WeatherPreview";
+import AppLayout from "@/components/layout/AppLayout";
 
-void hydrateSettingsFromIndexedDb().finally(() => {
-  const rootElement = document.getElementById("root");
+// Secondary routes are split out of the first-paint bundle — they load on
+// navigation, so the dashboard shell isn't blocked downloading their code.
+const BookmarksPage = lazy(() => import("@/pages/BookmarksPage"));
+const ResourceVaultPage = lazy(() => import("@/pages/ResourceVaultPage"));
+const WeatherPreviewPage = lazy(() => import("@/pages/WeatherPreview"));
 
-  if (!rootElement) {
-    throw new Error("Root element was not found.");
-  }
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Root element was not found.");
 
-  createRoot(rootElement).render(
-    <StrictMode>
-      <HashRouter>
+// Render immediately — the store already hydrates from localStorage synchronously.
+createRoot(rootElement).render(
+  <StrictMode>
+    <HashRouter>
+      <Suspense fallback={null}>
         <Routes>
-          <Route path="/" element={<IndexPage />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
+            <Route path="/resources" element={<ResourceVaultPage />} />
+          </Route>
           <Route path="/weather-preview" element={<WeatherPreviewPage />} />
         </Routes>
-      </HashRouter>
-    </StrictMode>
-  );
+      </Suspense>
+    </HashRouter>
+  </StrictMode>,
+);
+
+// Sync from IndexedDB in the background (more reliable than localStorage for large settings).
+void hydrateSettingsFromIndexedDb().then(() => {
+  useSettingsStore.getState().reloadSettings();
 });

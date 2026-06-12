@@ -5,11 +5,10 @@ import {
   Stars,
   AtmosphereLayer,
   Lightning,
-  CloudLayers,
 } from "./WeatherEffects";
 import AuroraLights from "@/features/media/components/AuroraLights";
 import VolumetricCloudscape from "@/features/media/components/VolumetricCloudscape";
-import type { ResolvedWeather } from "@/features/weather/types/weather";
+import type { CloudCoverage, CloudStyle, ResolvedWeather, WeatherPhase } from "@/features/weather/types/weather";
 
 interface WeatherSceneProps {
   resolved: ResolvedWeather;
@@ -31,37 +30,31 @@ export function WeatherScene({ resolved, condition }: WeatherSceneProps): React.
     (condition === "Clear" && !dayTime) ||
     (condition === "Clouds" && !dayTime && coverage === "partly");
 
+  // Compute sky props once — single VolumetricCloudscape stays mounted across condition
+  // changes so the shader is compiled exactly once and never recompiled mid-session.
+  const skyCoverage: CloudCoverage = showSnowClouds
+    ? (isHeavySnow ? "storm" : "full")
+    : showClouds ? coverage : "none";
+  const skyPhase: WeatherPhase = showSnowClouds && isHeavySnow ? "storm" : phase;
+  const skyStyle: CloudStyle   = showClearSky ? "clear" : visual.cloudStyle;
+  const skyFog = showClouds
+    ? visual.atmosphereStyle === "fog"  ? visual.atmosphereIntensity
+    : visual.atmosphereStyle === "mist" ? visual.atmosphereIntensity * 0.45
+    : 0
+    : 0;
+
   return (
     <>
-      {/* z-[2]: WebGL sky/cloud simulation — GPU layer pinned below particle effects */}
-      {showClearSky && (
-        <div className="absolute inset-0 z-[2] pointer-events-none">
-          <VolumetricCloudscape coverage="none" phase={timePhase} cloudStyle="clear" />
-        </div>
-      )}
-      {showClouds && (
-        <div className="absolute inset-0 z-[2] pointer-events-none">
-          <CloudLayers
-            coverage={coverage}
-            phase={phase}
-            cloudStyle={visual.cloudStyle}
-            fogIntensity={
-              visual.atmosphereStyle === "fog"  ? visual.atmosphereIntensity :
-              visual.atmosphereStyle === "mist" ? visual.atmosphereIntensity * 0.45 :
-              0
-            }
-          />
-        </div>
-      )}
-      {showSnowClouds && (
-        <div className="absolute inset-0 z-[2] pointer-events-none">
-          <CloudLayers
-            coverage={isHeavySnow ? "storm" : "full"}
-            phase={isHeavySnow ? "storm" : timePhase}
-            cloudStyle={visual.cloudStyle}
-          />
-        </div>
-      )}
+      {/* z-[2]: single always-mounted WebGL sky — shader compiles once, never recompiled */}
+      <div className="absolute inset-0 z-[2] pointer-events-none">
+        <VolumetricCloudscape
+          coverage={skyCoverage}
+          phase={skyPhase}
+          cloudStyle={skyStyle}
+          fogIntensity={skyFog}
+        />
+      </div>
+
       {showAurora && (
         <div className="absolute inset-0 z-[4] pointer-events-none">
           <AuroraLights intensity={resolved.auroraIntensity} />
@@ -76,7 +69,7 @@ export function WeatherScene({ resolved, condition }: WeatherSceneProps): React.
         } as React.CSSProperties}
       />
 
-      {/* z-[5]: Particle/overlay effects rendered above the WebGL canvas */}
+      {/* z-[5]: particle / overlay effects above the WebGL canvas */}
       <div className="absolute inset-0 z-[5] overflow-hidden pointer-events-none">
         <AtmosphereLayer visual={visual} />
         {showRain       && <RainDrops intensity={visual.precipitationIntensity} style={visual.precipitationStyle} wind={visual.windIntensity} />}

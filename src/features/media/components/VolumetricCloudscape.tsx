@@ -438,32 +438,22 @@ void main() {
 }
 `;
 
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(message || "Shader compile failed");
-  }
-  return shader;
-}
-
+// Compile and link without blocking status checks. getShaderParameter/getProgramParameter
+// force a GPU pipeline stall (1–3 s on complex shaders). Status is checked lazily in the
+// first requestAnimationFrame callback, so React finishes painting before any GPU stall.
 function createProgram(gl) {
-  const vertex   = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fragment = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-  const program  = gl.createProgram();
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VERTEX_SHADER);
+  gl.compileShader(vs);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, FRAGMENT_SHADER);
+  gl.compileShader(fs);
+  const program = gl.createProgram();
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
   gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(message || "Shader link failed");
-  }
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
   return program;
 }
 
@@ -506,6 +496,8 @@ export default function VolumetricCloudscape({
 }: VolumetricCloudscapeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [supported, setSupported] = useState(true);
+  const propsRef = useRef({ coverage, phase, cloudStyle, fogIntensity });
+  propsRef.current = { coverage, phase, cloudStyle, fogIntensity };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -513,26 +505,29 @@ export default function VolumetricCloudscape({
     if (!canvas || !gl) { setSupported(false); return undefined; }
 
     let animationFrame = 0;
-    let program: WebGLProgram;
-    try { program = createProgram(gl); }
-    catch { setSupported(false); return undefined; }
+    const program = createProgram(gl);
+    // KHR_parallel_shader_compile lets us poll completion without stalling the GPU pipeline.
+    const khrParallel = gl.getExtension("KHR_parallel_shader_compile") as { COMPLETION_STATUS_KHR: number } | null;
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
 
-    const position  = gl.getAttribLocation(program, "a_position");
-    const uRes      = gl.getUniformLocation(program, "u_resolution");
-    const uTime     = gl.getUniformLocation(program, "u_time");
-    const uPhase    = gl.getUniformLocation(program, "u_phase");
-    const uCoverage = gl.getUniformLocation(program, "u_coverage");
-    const uStyle    = gl.getUniformLocation(program, "u_style");
-    const uHour     = gl.getUniformLocation(program, "u_hour");
-    const uFog      = gl.getUniformLocation(program, "u_fog");
     const startedAt = performance.now();
 
+    // Uniform/attrib locations populated lazily on the first frame after link completes.
+    let glReady = false;
+    let position = -1;
+    let uRes: WebGLUniformLocation | null = null;
+    let uTime: WebGLUniformLocation | null = null;
+    let uPhase: WebGLUniformLocation | null = null;
+    let uCoverage: WebGLUniformLocation | null = null;
+    let uStyle: WebGLUniformLocation | null = null;
+    let uHour: WebGLUniformLocation | null = null;
+    let uFog: WebGLUniformLocation | null = null;
+
     function resize() {
-      const dpr   = Math.min(window.devicePixelRatio || 1, 2.5);
+      const dpr   = Math.min(window.devicePixelRatio || 1, 1.0);
       const width  = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
       const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       if (canvas.width !== width || canvas.height !== height) {
@@ -542,8 +537,39 @@ export default function VolumetricCloudscape({
       gl.viewport(0, 0, width, height);
     }
 
+    resize();
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+
+    const CLOUD_FRAME_MS = 1000 / 20;
+    let lastFrameTime = 0;
+
     function render(now: number) {
-      resize();
+      animationFrame = requestAnimationFrame(render);
+      if (!canvas.clientWidth) return; // hidden (ancestor display:none) — skip GPU work
+
+      if (!glReady) {
+        // Non-blocking poll with KHR extension; one-time stall without it (but deferred from mount).
+        if (khrParallel && !gl.getProgramParameter(program, khrParallel.COMPLETION_STATUS_KHR)) return;
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          setSupported(false);
+          cancelAnimationFrame(animationFrame);
+          return;
+        }
+        position  = gl.getAttribLocation(program, "a_position");
+        uRes      = gl.getUniformLocation(program, "u_resolution");
+        uTime     = gl.getUniformLocation(program, "u_time");
+        uPhase    = gl.getUniformLocation(program, "u_phase");
+        uCoverage = gl.getUniformLocation(program, "u_coverage");
+        uStyle    = gl.getUniformLocation(program, "u_style");
+        uHour     = gl.getUniformLocation(program, "u_hour");
+        uFog      = gl.getUniformLocation(program, "u_fog");
+        glReady = true;
+      }
+
+      if (now - lastFrameTime < CLOUD_FRAME_MS) return;
+      lastFrameTime = now;
+
       const d = new Date();
       const hour = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
 
@@ -551,24 +577,25 @@ export default function VolumetricCloudscape({
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      const p = propsRef.current;
       gl.uniform2f(uRes,      canvas.width, canvas.height);
       gl.uniform1f(uTime,     (now - startedAt) / 1000);
-      gl.uniform1f(uPhase,    getPhaseValue(coverage === "storm" ? "storm" : phase));
-      gl.uniform1f(uCoverage, getCoverageValue(coverage));
-      gl.uniform1f(uStyle,    getStyleValue(cloudStyle));
+      gl.uniform1f(uPhase,    getPhaseValue(p.coverage === "storm" ? "storm" : p.phase));
+      gl.uniform1f(uCoverage, getCoverageValue(p.coverage));
+      gl.uniform1f(uStyle,    getStyleValue(p.cloudStyle));
       gl.uniform1f(uHour,     hour);
-      gl.uniform1f(uFog,      fogIntensity);
+      gl.uniform1f(uFog,      p.fogIntensity);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      animationFrame = requestAnimationFrame(render);
     }
 
     animationFrame = requestAnimationFrame(render);
     return () => {
       cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [coverage, phase, cloudStyle, fogIntensity]);
+  }, []);
 
   if (!supported) {
     const phaseValue = getPhaseValue(phase);
