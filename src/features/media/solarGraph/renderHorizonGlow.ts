@@ -65,44 +65,6 @@ export function renderHorizonGlow(ctx, width, height, lst, solar, horizonY, elev
 
   ctx.globalCompositeOperation = 'lighter';
 
-  // --- Layer 0b: Outermost atmospheric halo — very wide, soft color backdrop ---
-  // Sunset: dark blues + light purples. Sunrise: soft pinks + warm magentas.
-  if (isMorning) {
-    // Sunrise outer halo: soft magenta-pink
-    const haloA = { r: 120, g: 40, b: 80 };
-    drawEllipseGlow(ctx, sunX, horizonY, 310 * sizeScale, scaleX * 1.9, scaleY * 1.35, [
-      [0, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.28 * alphaScale})`],
-      [0.2, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.15 * alphaScale})`],
-      [0.52, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.05 * alphaScale})`],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
-    // Sunrise mid-halo: warm rose-pink
-    const haloB = { r: 180, g: 70, b: 90 };
-    drawEllipseGlow(ctx, sunX, horizonY, 230 * sizeScale, scaleX * 1.55, scaleY * 1.13, [
-      [0, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.32 * alphaScale})`],
-      [0.25, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.15 * alphaScale})`],
-      [0.6, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.04 * alphaScale})`],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
-  } else {
-    // Sunset outer halo: dark blue
-    const haloA = { r: 30, g: 40, b: 100 };
-    drawEllipseGlow(ctx, sunX, horizonY, 310 * sizeScale, scaleX * 1.9, scaleY * 1.35, [
-      [0, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.31 * alphaScale})`],
-      [0.2, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.17 * alphaScale})`],
-      [0.52, `rgba(${haloA.r},${haloA.g},${haloA.b},${0.06 * alphaScale})`],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
-    // Sunset mid-halo: light purple / lavender
-    const haloB = { r: 110, g: 60, b: 150 };
-    drawEllipseGlow(ctx, sunX, horizonY, 230 * sizeScale, scaleX * 1.55, scaleY * 1.13, [
-      [0, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.34 * alphaScale})`],
-      [0.25, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.17 * alphaScale})`],
-      [0.6, `rgba(${haloB.r},${haloB.g},${haloB.b},${0.05 * alphaScale})`],
-      [1, 'rgba(0,0,0,0)'],
-    ]);
-  }
-
   // --- Layer 1: Deep red/crimson ---
   const outerColor = isMorning
     ? { r: 140, g: 20, b: 10 }

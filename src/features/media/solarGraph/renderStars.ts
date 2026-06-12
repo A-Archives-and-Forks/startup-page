@@ -9,7 +9,7 @@ const POLE_Y = -0.15;
 // Real sky: overwhelming majority of stars are dim sub-pixel pinpoints,
 // a few are moderately bright, very rare ones are prominent.
 // Uses a power-law magnitude distribution to mimic this.
-export function createStarField(count = 900) {
+export function createStarField(count = 500) {
   const stars = [];
   const maxDist = 1.5;
   for (let i = 0; i < count; i++) {
@@ -34,6 +34,9 @@ export function createStarField(count = 900) {
     // 0 = cool blue-white, 1 = warm yellow
     // Weighted toward cool — only bright stars get warm tones
     const warmth = mag > 0.7 ? Math.random() * 0.6 : Math.random() * 0.15;
+    const r = Math.round(190 + warmth * 60);
+    const g = Math.round(195 + warmth * 40);
+    const b = Math.round(220 - warmth * 50);
 
     stars.push({
       angle,
@@ -43,7 +46,7 @@ export function createStarField(count = 900) {
       twinkleFreq: 0.3 + Math.random() * 1.5,
       twinklePhase: Math.random() * Math.PI * 2,
       twinkleAmplitude,
-      warmth,
+      r, g, b,
     });
   }
   return stars;
@@ -166,11 +169,7 @@ export function renderStars(ctx, width, height, stars, time, lst, solar, elev) {
 
     if (x < -5 || x > width + 5 || y < -5 || y > height + 5) continue;
 
-    // Cool blue-white base, shift toward warm yellow with warmth factor
-    const r = Math.round(190 + star.warmth * 60);
-    const g = Math.round(195 + star.warmth * 40);
-    const b = Math.round(220 - star.warmth * 50);
-
+    const { r, g, b } = star;
     ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
     if (star.size < 0.55) {
       const microSize = Math.max(0.18, star.size);
@@ -179,13 +178,16 @@ export function renderStars(ctx, width, height, stars, time, lst, solar, elev) {
     }
 
     if (star.size > 1.1 && alpha > 0.22) {
-      ctx.save();
-      ctx.shadowBlur = 4;
-      ctx.shadowColor = `rgba(${r},${g},${b},${alpha * 0.55})`;
+      // Soft outer halo via wider circle — avoids shadowBlur which is expensive per-call
+      ctx.beginPath();
+      ctx.arc(x, y, star.size * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.18})`;
+      ctx.fill();
+      // Bright core
       ctx.beginPath();
       ctx.arc(x, y, star.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
       ctx.fill();
-      ctx.restore();
       continue;
     }
 

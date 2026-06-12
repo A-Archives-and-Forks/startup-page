@@ -40,7 +40,10 @@ export default function SolarGraph() {
     const settings = readSettings();
 
     function initSolar(lat, lng) {
-      // lat/lng in degrees — no conversion needed
+      // Cancel any in-flight animation from a previous initSolar call
+      if (state.animFrameId) { cancelAnimationFrame(state.animFrameId); state.animFrameId = null; }
+      if (sweepTimer) { clearInterval(sweepTimer); sweepTimer = null; }
+      if (state._realTimeTimer) { clearInterval(state._realTimeTimer); state._realTimeTimer = null; }
       state.solar = calculateSolarContext(lat, lng);
       state.stars = createStarField();
       state.lst = 0;
@@ -52,7 +55,7 @@ export default function SolarGraph() {
     // Resize handler
     function resize() {
       const container = canvas.parentElement;
-      const dpr = Math.min(4, Math.max(3, window.devicePixelRatio || 1));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = container.clientWidth;
       const h = container.clientHeight;
       const nextWidth = Math.max(1, Math.round(w * dpr));
@@ -106,6 +109,7 @@ export default function SolarGraph() {
         const elapsed = timestamp - state.lastTimestamp;
         const targetMs = state.hovering ? 1000 / 60 : TARGET_FRAME_MS;
         if (elapsed < targetMs) return;
+        if (!canvas.clientWidth) return; // ancestor has display:none — skip draw
         const dt = elapsed / 1000;
         state.lastTimestamp = timestamp;
         state.animationTime += dt;
@@ -113,20 +117,33 @@ export default function SolarGraph() {
       }
 
       state.animFrameId = requestAnimationFrame(frame);
+      state._frameFunc = frame;
 
       // Store for cleanup
       state._realTimeTimer = realTimeTimer;
     }
 
-    if (settings.latitude) {
-      initSolar(settings.latitude, settings.longitude);
-    } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => initSolar(position.coords.latitude, position.coords.longitude),
-        () => initSolar(40.7128, -74.006) // fallback: NYC
-      );
+    if (state.solar) {
+      // StrictMode re-mount: stateRef survived cleanup — resume the animation
+      // from where it left off instead of restarting the sweep from zero.
+      state.lastTimestamp = performance.now();
+      startAnimation();
     } else {
-      initSolar(40.7128, -74.006);
+      initSolar(
+        settings.latitude  ?? 40.7128,
+        settings.longitude ?? -74.006
+      );
+
+      // Refine with real geolocation if no saved coordinates.
+      if (!settings.latitude && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            state.solar = calculateSolarContext(pos.coords.latitude, pos.coords.longitude);
+          },
+          () => { /* already running with fallback */ },
+          { timeout: 8000, maximumAge: 600000 }
+        );
+      }
     }
 
     function draw(ctx, canvas, state) {
@@ -182,6 +199,20 @@ export default function SolarGraph() {
     canvas.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('mouseleave', onMouseLeave);
 
+    // Pause the render loop when the tab is hidden to avoid burning CPU in background
+    function onVisibilityChange() {
+      if (document.hidden) {
+        if (state.animFrameId) {
+          cancelAnimationFrame(state.animFrameId);
+          state.animFrameId = null;
+        }
+      } else if (!state.animFrameId && state._frameFunc) {
+        state.lastTimestamp = performance.now();
+        state.animFrameId = requestAnimationFrame(state._frameFunc);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       if (state.animFrameId) cancelAnimationFrame(state.animFrameId);
       if (sweepTimer) clearInterval(sweepTimer);
@@ -189,6 +220,7 @@ export default function SolarGraph() {
       resizeObserver.disconnect();
       canvas.removeEventListener('mousemove', onMouseMove);
       canvas.removeEventListener('mouseleave', onMouseLeave);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 

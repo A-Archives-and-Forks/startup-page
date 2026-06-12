@@ -28,6 +28,37 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Start Page</title>
+    <script>
+      (function () {
+        // Suppress ResizeObserver loop errors — benign WebGL canvas resize
+        // artifacts that can trigger Vite's error overlay in dev mode.
+        window.addEventListener('error', function (e) {
+          if (e.message && e.message.includes('ResizeObserver')) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        }, true);
+
+        // Apply theme before React renders to eliminate flash of unstyled content.
+        try {
+          var mode = null, palette = null;
+          var raw = localStorage.getItem('startup-page.settings');
+          if (raw) {
+            var p = JSON.parse(raw);
+            mode = (p && p.ui && p.ui.themeMode) || null;
+            palette = (p && p.ui && p.ui.themePalette) || null;
+          }
+          if (!mode) mode = localStorage.getItem('color-theme-mode');
+          if (!palette) palette = localStorage.getItem('color-theme-palette');
+          palette = palette || 'zen';
+          var resolved = mode === 'dark' ? 'dark'
+            : mode === 'light' ? 'light'
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.classList.add(resolved);
+          document.documentElement.dataset.theme = palette;
+        } catch (_) {}
+      })();
+    </script>
     <script type="module" src="/src/app/main.tsx"></script>
   </head>
   <body class="text-blueGray-100 antialiased">

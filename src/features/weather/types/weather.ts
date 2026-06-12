@@ -48,7 +48,7 @@ export interface OpenWeatherCurrent {
 }
 
 export interface WeatherData {
-  source: "OpenWeather" | "Open-Meteo";
+  source: "OpenWeather";
   unit: string;
   current?: {
     temperature_2m?: number;

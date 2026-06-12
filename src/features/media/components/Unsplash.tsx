@@ -38,6 +38,19 @@ function getUrlFromStore(searchTerms) {
   }
 }
 
+const PHOTO_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function isCacheStale(searchTerms) {
+  if (!searchTerms?.length) return true;
+  try {
+    const store = JSON.parse(localStorage.getItem(URL_STORE_KEY) || "{}");
+    const cachedAt = store[buildCacheKey(searchTerms)]?.cachedAt;
+    return !cachedAt || Date.now() - cachedAt > PHOTO_TTL_MS;
+  } catch {
+    return true;
+  }
+}
+
 function saveUrlToStore(searchTerms, url) {
   try {
     const store = JSON.parse(localStorage.getItem(URL_STORE_KEY) || "{}");
@@ -125,19 +138,20 @@ class Unsplash extends Component {
     const cachedUrl = getUrlFromStore(searchTerms);
 
     if (cachedUrl) {
-      // Try to get the cached image binary first.
-      let blobUrl = await getCachedBlobUrl(cachedUrl);
+      const blobUrl = await getCachedBlobUrl(cachedUrl);
 
-      if (!blobUrl) {
-        // Image was evicted from Cache API — re-fetch and cache it.
-        blobUrl = await fetchAndCacheImage(cachedUrl);
-      }
-
-      // Show immediately (blob URL if available, raw URL as fallback).
+      // Show immediately — use raw URL if blob was evicted from Cache API.
       this._show(blobUrl || cachedUrl, category);
 
-      // Refresh in background for the next page load. Fire and forget.
-      void this._refreshInBackground(category, searchTerms);
+      if (!blobUrl) {
+        // Re-cache the image in background so next load gets a blob URL.
+        void fetchAndCacheImage(cachedUrl);
+      }
+
+      // Only do a network refresh if the photo is older than 1 hour.
+      if (isCacheStale(searchTerms)) {
+        void this._refreshInBackground(category, searchTerms);
+      }
       return;
     }
 
