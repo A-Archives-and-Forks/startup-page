@@ -48,29 +48,59 @@ float fbm(vec2 p) {
   return value;
 }
 
-float curtainColumns(vec2 uv, float phase) {
-  float broad = fbm(vec2(uv.x * 3.1 + phase * 0.07, phase * 0.16));
-  float medium = fbm(vec2(uv.x * 8.4 - phase * 0.04, 4.0 + phase * 0.13));
-  float fine = fbm(vec2(uv.x * 21.0 + phase * 0.03, uv.y * 0.45 + phase * 0.08));
-  float hair = fbm(vec2(uv.x * 48.0, uv.y * 1.2 + phase * 0.12));
+// One aurora curtain: a folded ribbon with vertical field-aligned rays.
+// h is altitude above the curtain's lower border (the sharp "hem").
+// Returns vec4(color * brightness, brightness).
+vec4 curtain(vec2 p, float t, float seedOff, float scale) {
+  // Large slow folds — the curtain's serpentine path across the sky.
+  float fold1 = fbm(vec2(p.x * 1.3 * scale + t * 0.026 + seedOff, t * 0.018)) - 0.5;
+  float fold2 = fbm(vec2(p.x * 3.1 * scale - t * 0.020 + seedOff, 7.0 + t * 0.025)) - 0.5;
 
-  float columns = smoothstep(0.28, 0.84, broad) * 0.68;
-  columns += smoothstep(0.38, 0.9, medium) * 0.36;
-  columns += pow(smoothstep(0.48, 0.94, fine), 2.1) * 0.36;
-  columns += pow(smoothstep(0.56, 1.0, hair), 4.0) * 0.18;
+  // Lower border ("hem") height undulates along the fold
+  float hem = 0.16 + fold1 * 0.17 + fold2 * 0.07;
+  float h = (p.y - hem) / 0.78;
+  if (h < -0.05) return vec4(0.0);
 
-  return columns;
-}
+  // Ray coordinate: rays shear with the folds and diverge slightly upward,
+  // like field lines converging to the magnetic zenith.
+  float rx = p.x * scale + fold1 * (0.25 + h * 0.40) + fold2 * 0.10 * h + seedOff;
 
-float curtainTexture(vec2 uv, float phase) {
-  float verticalWash = fbm(vec2(uv.x * 2.0 + phase * 0.05, uv.y * 1.65 + phase * 0.04));
-  float streaks = curtainColumns(uv, phase);
-  float hanging = smoothstep(0.04, 0.2, uv.y) * (1.0 - smoothstep(0.96, 1.04, uv.y));
-  float topWeight = 0.72 + smoothstep(0.58, 1.0, uv.y) * 0.32;
-  float lowerGlow = exp(-abs(uv.y - 0.36) / 0.22) * 0.28;
-  float softGaps = 1.0 - smoothstep(0.48, 0.86, fbm(vec2(uv.x * 5.7 + 9.0, phase * 0.11)));
+  // Multi-scale vertical ray structure (broad bands → hair-thin striations)
+  float rBroad = fbm(vec2(rx * 2.7 + t * 0.045, t * 0.013));
+  float rMed   = fbm(vec2(rx * 7.6 - t * 0.032, 3.7));
+  float rFine  = fbm(vec2(rx * 19.0 + t * 0.020, 9.1));
+  float rHair  = noise(vec2(rx * 46.0, t * 0.25));
 
-  return (streaks * topWeight + verticalWash * 0.26 + lowerGlow) * hanging * mix(0.64, 1.0, softGaps);
+  float rays = smoothstep(0.30, 0.86, rBroad) * 0.60
+             + smoothstep(0.40, 0.92, rMed) * 0.42
+             + pow(smoothstep(0.50, 0.95, rFine), 2.0) * 0.38
+             + pow(rHair, 5.0) * 0.22;
+
+  // Brightness waves racing along the curtain — the aurora "dancing"
+  float wave  = 0.55 + 0.45 * fbm(vec2(rx * 2.1 - t * 0.55, t * 0.10));
+  float surge = 0.75 + 0.25 * sin(t * 0.23 + fold1 * 5.0);
+
+  // Vertical profile: sharp bottom edge, brightest just above the hem,
+  // long diffuse fade upward; strong rays extend further up.
+  float hPos = max(h, 0.0);
+  float base = smoothstep(-0.02, 0.05, h) * exp(-hPos * 2.3);
+  float tall = smoothstep(0.0, 0.05, h) * exp(-hPos * 1.05) * smoothstep(0.45, 0.95, rays);
+  float profile = base + tall * 0.55;
+
+  float bright = clamp(rays * wave * surge * profile, 0.0, 1.4);
+
+  // Altitude emission colors: pink-purple N2 fringe at the very bottom,
+  // the classic 557nm oxygen green body, and dim 630nm oxygen red on top.
+  vec3 cPink  = vec3(0.93, 0.38, 0.80);
+  vec3 cGreen = vec3(0.22, 0.96, 0.46);
+  vec3 cTeal  = vec3(0.14, 0.78, 0.62);
+  vec3 cRed   = vec3(0.82, 0.16, 0.38);
+  vec3 col = cGreen;
+  col = mix(cPink, col, smoothstep(0.015, 0.15, hPos));
+  col = mix(col, cTeal, smoothstep(0.22, 0.50, hPos) * 0.35);
+  col = mix(col, cRed,  smoothstep(0.42, 0.95, hPos) * 0.80);
+
+  return vec4(col * bright, bright);
 }
 
 void main() {
@@ -78,38 +108,26 @@ void main() {
   float aspect = u_resolution.x / max(u_resolution.y, 1.0);
   vec2 p = vec2((uv.x - 0.5) * aspect + 0.5, uv.y);
 
-  float phase = u_time * 0.35;
-  float lowerFade = smoothstep(0.2, 0.34, uv.y);
-  float upperFade = 1.0 - smoothstep(0.98, 1.0, uv.y);
-  float breath = 0.88 + 0.12 * sin(phase * 0.16);
+  float t = u_time * 0.5;
+  float lowerFade = smoothstep(0.16, 0.3, uv.y);
+  float upperFade = 1.0 - smoothstep(0.95, 1.0, uv.y);
+  float sideFade = smoothstep(0.0, 0.05, uv.x) * (1.0 - smoothstep(0.95, 1.0, uv.x));
 
-  float curtain = curtainTexture(p, phase);
-  float secondLayer = curtainTexture(vec2(p.x * 0.82 + 0.09, p.y), phase + 11.0) * 0.54;
-  float cloudyVeil = fbm(vec2(p.x * 2.2, p.y * 2.4 + sin(phase * 0.09) * 0.18));
-  float broadHaze = smoothstep(0.26, 0.88, cloudyVeil) * 0.34;
-  float glow = clamp((curtain + secondLayer + broadHaze) * breath, 0.0, 1.65);
+  // Foreground curtain + a dimmer, slower one behind it for depth
+  vec4 front = curtain(p, t, 0.0, 1.0);
+  vec4 back  = curtain(vec2(p.x * 0.8 + 0.13, p.y * 0.92 + 0.06), t * 0.7, 17.0, 1.3);
 
-  vec3 green = vec3(0.42, 0.92, 0.62);
-  vec3 yellow = vec3(0.86, 0.83, 0.42);
-  vec3 teal = vec3(0.20, 0.72, 0.70);
-  vec3 blue = vec3(0.18, 0.42, 0.95);
-  vec3 purple = vec3(0.58, 0.26, 0.92);
-  vec3 red = vec3(0.96, 0.22, 0.34);
-  vec3 blueShadow = vec3(0.16, 0.28, 0.42);
-  float warmth = smoothstep(0.42, 0.92, fbm(vec2(p.x * 7.0 + 3.0, phase * 0.08)));
-  float tealMix = smoothstep(0.25, 0.86, fbm(vec2(p.x * 4.2 - 6.0, p.y * 0.7)));
-  float blueMix = smoothstep(0.38, 0.9, fbm(vec2(p.x * 5.8 + 11.0, p.y * 1.1 + phase * 0.05)));
-  float purpleMix = smoothstep(0.5, 0.94, fbm(vec2(p.x * 8.8 - 4.0, p.y * 1.8 + phase * 0.04)));
-  float redMix = smoothstep(0.62, 0.98, fbm(vec2(p.x * 6.2 + 18.0, p.y * 0.9 - phase * 0.03)));
-  vec3 color = mix(green, yellow, warmth * 0.55);
-  color = mix(color, teal, tealMix * 0.32);
-  color = mix(color, blue, blueMix * 0.26);
-  color = mix(color, purple, purpleMix * 0.2 * smoothstep(0.44, 0.9, uv.y));
-  color = mix(color, red, redMix * 0.15 * smoothstep(0.54, 0.96, uv.y));
-  color = mix(blueShadow, color, 0.78 + glow * 0.18);
-  color *= 0.72 + glow * 0.52;
+  // Faint diffuse airglow veil drifting high above
+  float veil = smoothstep(0.3, 0.9, fbm(vec2(p.x * 1.9 + t * 0.02, p.y * 2.2 + 31.0)))
+             * smoothstep(0.3, 0.75, uv.y) * 0.18;
 
-  float alpha = clamp(glow * 0.58, 0.0, 0.72) * lowerFade * upperFade * u_intensity;
+  vec3 color = front.rgb + back.rgb * 0.45 + vec3(0.20, 0.80, 0.50) * veil;
+  float bright = front.a + back.a * 0.45 + veil;
+
+  // Subtle cool ambient so the glow reads as light in a dark sky
+  color += vec3(0.07, 0.12, 0.22) * bright * 0.3;
+
+  float alpha = clamp(bright * 0.62, 0.0, 0.8) * lowerFade * upperFade * sideFade * u_intensity;
   gl_FragColor = vec4(color, alpha);
 }
 `;

@@ -6,6 +6,7 @@ import {
 import type {
   WeatherCondition,
   CloudCoverage,
+  CloudStyle,
   WeatherData,
   ForecastDay,
   HourlyForecastPoint,
@@ -466,6 +467,76 @@ export function getOpenMeteoCoverage(weatherCode: number): CloudCoverage {
   return "none";
 }
 
+/**
+ * Plausible cloud-sky fraction per OpenWeather condition ID, following OpenWeather's
+ * own cover definitions: 800 clear 0-10%, 801 few 11-25%, 802 scattered 25-50%,
+ * 803 broken 51-84%, 804 overcast 85-100%. Precipitation conditions imply a mostly
+ * covered sky, so the reported `clouds.all` percentage is clamped into this range.
+ */
+export function getCloudCoverRange(weatherId: number): [number, number] {
+  if (weatherId === 800) return [0, 0.08];
+  if (weatherId === 801) return [0.11, 0.27];
+  if (weatherId === 802) return [0.27, 0.52];
+  if (weatherId === 803) return [0.52, 0.86];
+  if (weatherId === 804) return [0.85, 1];
+  if (weatherId >= 200 && weatherId < 300) return [0.82, 1];      // thunderstorm
+  if (weatherId >= 300 && weatherId < 400) return [0.78, 1];      // drizzle — low solid deck
+  if (weatherId === 520 || weatherId === 521) return [0.5, 0.92]; // showers — gaps between cells
+  if (weatherId >= 502 && weatherId <= 504) return [0.92, 1];     // heavy+ rain
+  if (weatherId === 500) return [0.55, 0.95];
+  if (weatherId >= 500 && weatherId < 600) return [0.72, 1];
+  if (weatherId === 600 || weatherId === 620) return [0.6, 0.95];
+  if (weatherId >= 600 && weatherId < 700) return [0.78, 1];
+  if (weatherId === 701 || weatherId === 721) return [0.2, 0.85]; // mist / haze
+  if (weatherId === 771 || weatherId === 781) return [0.85, 1];   // squall / tornado
+  if (weatherId >= 700 && weatherId < 800) return [0.5, 1];
+  return [0.3, 0.9];
+}
+
+/** Continuous cloud fraction 0-1: real `clouds.all` when reported, condition midpoint otherwise. */
+export function getCloudFraction(weatherId: number | undefined, reportedPct: number | undefined | null): number {
+  if (weatherId == null) return clamp((reportedPct ?? 50) / 100, 0, 1);
+  const [min, max] = getCloudCoverRange(weatherId);
+  if (reportedPct == null) return (min + max) / 2;
+  return clamp(reportedPct / 100, min, max);
+}
+
+// Base optical thickness per cloud genus — how dark the deck's underside reads.
+const CLOUD_STYLE_DENSITY: Record<CloudStyle, number> = {
+  clear:         0.04,
+  cumulus:       0.16,
+  stratocumulus: 0.28,
+  stratus:       0.40,
+  nimbostratus:  0.62,
+  cumulonimbus:  0.80,
+  supercell:     0.96,
+};
+
+function getCloudDensity(visual: WeatherVisualProfile, cloudFraction: number): number {
+  // A 100% overcast deck is darker and more uniform than an 85% one with thin spots.
+  const density = clamp(
+    CLOUD_STYLE_DENSITY[visual.cloudStyle] +
+      visual.precipitationIntensity * 0.28 +
+      Math.max(0, cloudFraction - 0.72) * 0.55,
+    0,
+    1
+  );
+  // Snow decks stay luminous — falling/settled snow scatters light back up,
+  // so even a heavy-snow sky reads bright gray, not charcoal.
+  const snowy =
+    visual.precipitationStyle === "snow" ||
+    visual.precipitationStyle === "heavy-snow" ||
+    visual.precipitationStyle === "sleet";
+  return snowy ? density * 0.5 : density;
+}
+
+function getEffectiveWind(visual: WeatherVisualProfile, windSpeed: number | undefined, unit: string): number {
+  if (windSpeed == null) return Math.max(visual.windIntensity, 0.04);
+  const metersPerSecond = unit === "imperial" ? windSpeed * 0.44704 : windSpeed;
+  const reported = clamp(metersPerSecond / 17, 0, 1); // ~17 m/s (38 mph) gale = full scale
+  return clamp(Math.max(visual.windIntensity * 0.55, reported), 0.04, 1);
+}
+
 export function formatWeatherDescription(description: string | undefined): string {
   if (!description) return "Current conditions";
   return description.charAt(0).toUpperCase() + description.slice(1);
@@ -486,8 +557,16 @@ export function resolveWeather(
   const coverage: CloudCoverage = ow ? getOpenWeatherCoverage(ow.id) : "none";
   const visual = ow ? getOpenWeatherVisualProfile(ow.id) : getOpenWeatherVisualProfile(804);
 
-  // For the VolumetricCloudscape phase prop
-  const phase = coverage === "storm" ? "storm" : timePhase;
+  // Continuous sky description for the WebGL cloudscape. Phase stays the real time
+  // phase even for storms — a daytime thunderstorm is a dark green-gray day, not night;
+  // the cloud style + density darken the scene instead.
+  const phase = timePhase;
+  const cloudFraction = getCloudFraction(ow?.id, data.current?.cloud_cover);
+  const cloudDensity  = getCloudDensity(visual, cloudFraction);
+  const windEffective = getEffectiveWind(visual, data.current?.wind_speed, data.unit);
+  const clockDate = new Date(clockTime);
+  const clockHour =
+    clockDate.getHours() + clockDate.getMinutes() / 60 + clockDate.getSeconds() / 3600;
 
   const gradient     = CONDITION_GRADIENTS[condition]?.[timeKey] ?? CONDITION_GRADIENTS.Clouds.day;
   const skyGradient  = getSkyGradient(condition, timePhase);
@@ -543,6 +622,10 @@ export function resolveWeather(
     coverage,
     phase,
     timePhase,
+    cloudFraction,
+    cloudDensity,
+    windEffective,
+    clockHour,
     dayTime,
     timeKey,
     temperature,

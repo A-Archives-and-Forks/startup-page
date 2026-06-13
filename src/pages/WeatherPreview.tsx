@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { HiArrowLeft } from "react-icons/hi2";
 import { WeatherBox } from "@/features/weather/components/WeatherBox";
+import { getCloudCoverRange } from "@/features/weather/utils";
 import type { WeatherCondition, WeatherData } from "@/features/weather/types/weather";
 
 const CONDITION_OPTIONS: Array<{
@@ -116,7 +117,7 @@ function makeHourlyPreview(): WeatherData["hourly"] {
   };
 }
 
-function makePreviewWeather(conditionId: number): WeatherData {
+function makePreviewWeather(conditionId: number, cloudCover: number, windMph: number): WeatherData {
   const selected = CONDITION_OPTIONS.find((option) => option.id === conditionId) ?? CONDITION_OPTIONS[0];
   const temperature = getPreviewTemperature(selected.main);
 
@@ -127,6 +128,8 @@ function makePreviewWeather(conditionId: number): WeatherData {
       temperature_2m: temperature,
       weather_code: 3,
       is_day: 1,
+      cloud_cover: cloudCover,
+      wind_speed: windMph,
     },
     daily: {
       time: ["2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18"],
@@ -159,12 +162,44 @@ function formatPreviewHour(hour: number): string {
   return `${hour12}:${String(minutes).padStart(2, "0")} ${suffix}`;
 }
 
+function defaultCloudCover(conditionId: number): number {
+  const [min, max] = getCloudCoverRange(conditionId);
+  return Math.round(((min + max) / 2) * 100);
+}
+
 export default function WeatherPreviewPage() {
-  const [conditionId, setConditionId] = useState(802);
-  const [previewHour, setPreviewHour] = useState(12);
-  const previewData = useMemo(() => makePreviewWeather(conditionId), [conditionId]);
+  // Initial state can be deep-linked: #/weather-preview?id=212&hour=14&cover=95&wind=20
+  const [searchParams] = useSearchParams();
+  const initialId = CONDITION_OPTIONS.some((o) => o.id === Number(searchParams.get("id")))
+    ? Number(searchParams.get("id"))
+    : 802;
+  const [conditionId, setConditionId] = useState(initialId);
+  const [previewHour, setPreviewHour] = useState(() => {
+    const h = Number(searchParams.get("hour"));
+    return Number.isFinite(h) && searchParams.has("hour") ? Math.min(24, Math.max(0, h)) : 12;
+  });
+  const [cloudCover, setCloudCover] = useState(() => {
+    const c = Number(searchParams.get("cover"));
+    return Number.isFinite(c) && searchParams.has("cover")
+      ? Math.min(100, Math.max(0, c))
+      : defaultCloudCover(initialId);
+  });
+  const [windMph, setWindMph] = useState(() => {
+    const w = Number(searchParams.get("wind"));
+    return Number.isFinite(w) && searchParams.has("wind") ? Math.min(45, Math.max(0, w)) : 8;
+  });
+  const previewData = useMemo(
+    () => makePreviewWeather(conditionId, cloudCover, windMph),
+    [conditionId, cloudCover, windMph]
+  );
   const clockTime = useMemo(() => getClockTime(previewHour), [previewHour]);
   const groups = Array.from(new Set(CONDITION_OPTIONS.map((option) => option.group)));
+  const coverRange = getCloudCoverRange(conditionId);
+
+  const handleConditionChange = (id: number) => {
+    setConditionId(id);
+    setCloudCover(defaultCloudCover(id));
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950">
@@ -183,7 +218,7 @@ export default function WeatherPreviewPage() {
             Conditions
             <select
               value={conditionId}
-              onChange={(event) => setConditionId(Number(event.target.value))}
+              onChange={(event) => handleConditionChange(Number(event.target.value))}
               className="rounded-lg border border-white/15 bg-neutral-950 px-3 py-2 text-sm font-medium normal-case text-white outline-none transition focus:border-white/40"
             >
               {groups.map((group) => (
@@ -217,6 +252,42 @@ export default function WeatherPreviewPage() {
               <span>12 PM</span>
               <span>6 PM</span>
               <span>12 AM</span>
+            </span>
+          </label>
+          <label className="flex min-w-44 flex-1 flex-col gap-2 text-xs font-medium uppercase tracking-wide text-white/60">
+            <span className="flex items-center justify-between gap-3">
+              <span>Cloud cover</span>
+              <span className="text-sm font-semibold normal-case text-white">{cloudCover}%</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={cloudCover}
+              onChange={(event) => setCloudCover(Number(event.target.value))}
+              className="h-2 w-full cursor-pointer accent-sky-300"
+            />
+            <span className="text-[0.65rem] normal-case tracking-normal text-white/45">
+              Condition clamps to {Math.round(coverRange[0] * 100)}–{Math.round(coverRange[1] * 100)}%
+            </span>
+          </label>
+          <label className="flex min-w-44 flex-1 flex-col gap-2 text-xs font-medium uppercase tracking-wide text-white/60">
+            <span className="flex items-center justify-between gap-3">
+              <span>Wind</span>
+              <span className="text-sm font-semibold normal-case text-white">{windMph} mph</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="45"
+              step="1"
+              value={windMph}
+              onChange={(event) => setWindMph(Number(event.target.value))}
+              className="h-2 w-full cursor-pointer accent-emerald-300"
+            />
+            <span className="text-[0.65rem] normal-case tracking-normal text-white/45">
+              Drives cloud drift speed and rain/snow slant
             </span>
           </label>
         </div>
