@@ -9,6 +9,7 @@
     "themePalette": "zen",
     "gridDensity": "comfortable",
     "cardStyle": "rounded",
+    "clockFormat": "12h",
     "tileSize": 9,
     "bookmarkPillSize": 3.25,
     "showDecorativeMedia": true,

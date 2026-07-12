@@ -627,6 +627,7 @@ function SettingsButton() {
   const selectedThemePalette = settingsState.ui?.themePalette || themePalette;
   const selectedGridDensity = settingsState.ui?.gridDensity || "comfortable";
   const selectedCardStyle = settingsState.ui?.cardStyle || "rounded";
+  const selectedClockFormat = settingsState.ui?.clockFormat || "12h";
   const imageEffects = settingsState.ui?.imageEffects || IMAGE_FILTER_DEFAULTS;
 
   return (
@@ -821,6 +822,23 @@ function SettingsButton() {
                           title={value.charAt(0).toUpperCase() + value.slice(1)}
                           description={value === "soft" ? "Large rounded corners." : value === "sharp" ? "Crisper corners." : "Balanced default radius."}
                           onClick={() => handleUiChange("cardStyle", value)}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Clock Format</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                      {["12h", "24h"].map((value) => (
+                        <ChoiceButton
+                          key={value}
+                          selected={selectedClockFormat === value}
+                          title={value === "12h" ? "12-hour" : "24-hour"}
+                          description={value === "12h" ? "Hours 1–12 (e.g. 9:45)." : "Hours 0–23 (e.g. 21:45)."}
+                          onClick={() => handleUiChange("clockFormat", value)}
                         />
                       ))}
                     </CardContent>

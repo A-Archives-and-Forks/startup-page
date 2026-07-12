@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import { useSettingsStore } from "@/features/settings/stores";
+
 const SEGMENTS = {
   "0": ["a", "b", "c", "d", "e", "f"],
   "1": ["b", "c"],
@@ -46,13 +48,14 @@ const DAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const DIGITAL_GRID_COLUMNS = 21;
 const DIGITAL_GRID_ROWS = 17;
 
-function getClockParts(date) {
+function getClockParts(date, use24Hour) {
   const hours24 = date.getHours();
   const hours12 = hours24 % 12 || 12;
   const minutes = date.getMinutes();
+  const displayHours = use24Hour ? String(hours24).padStart(2, "0") : String(hours12);
 
   return {
-    time: `${hours12}:${String(minutes).padStart(2, "0")}`,
+    time: `${displayHours}:${String(minutes).padStart(2, "0")}`,
     period: hours24 >= 12 ? "PM" : "AM",
     dayLabel: DAY_LABELS[date.getDay()],
     hourDeg: ((hours12 % 12) + minutes / 60) * 30,
@@ -231,9 +234,11 @@ function YearClock({ now }) {
 }
 
 export default function Clock() {
+  const clockFormat = useSettingsStore((state) => state.settings.ui?.clockFormat) || "12h";
+  const use24Hour = clockFormat === "24h";
   const [now, setNow] = useState(() => new Date());
   const [mode, setMode] = useState("digital");
-  const parts = useMemo(() => getClockParts(now), [now]);
+  const parts = useMemo(() => getClockParts(now, use24Hour), [now, use24Hour]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1000);
@@ -248,7 +253,7 @@ export default function Clock() {
       className="clock-widget flex h-full w-full flex-col items-center justify-center rounded-[inherit] text-center"
       onClick={() => setMode(nextMode)}
       title={`Switch to ${nextMode} view`}
-      aria-label={`Clock showing ${parts.time} ${parts.period}. Click to switch to the ${nextMode} view.`}
+      aria-label={`Clock showing ${parts.time}${use24Hour ? "" : ` ${parts.period}`}. Click to switch to the ${nextMode} view.`}
     >
       {mode === "digital" && <DigitalClock parts={parts} />}
       {mode === "analog" && (
