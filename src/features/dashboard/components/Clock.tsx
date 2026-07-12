@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useSettingsStore } from "@/features/settings/stores";
 
@@ -35,7 +35,7 @@ const DOT_LETTERS = {
   F: ["111", "100", "110", "100", "100"],
   I: ["111", "010", "010", "010", "111"],
   M: ["101", "111", "111", "101", "101"],
-  N: ["101", "111", "111", "111", "101"],
+  N: ["101", "101", "111", "101", "101"],
   O: ["111", "101", "101", "101", "111"],
   R: ["110", "101", "110", "101", "101"],
   S: ["111", "100", "111", "001", "111"],
@@ -166,7 +166,7 @@ function dayOfYear(date) {
 // and spacing: DOM elements snap their boxes to device pixels individually,
 // which makes a ~4px dot grid look ragged; canvas doesn't snap.
 function YearClock({ now }) {
-  const canvasRef = React.useRef(null);
+  const canvasRef = useRef(null);
   const year = now.getFullYear();
   const month = now.getMonth();
   const date = now.getDate();
