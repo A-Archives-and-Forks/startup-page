@@ -44,7 +44,7 @@ class Windy extends React.Component {
           height="320"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
-          src={this.state.link}
+          src={this.state.link || undefined}
           title="Windy map"
         />
       </div>
