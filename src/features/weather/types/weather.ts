@@ -54,6 +54,15 @@ export interface WeatherData {
     temperature_2m?: number;
     weather_code?: number;
     is_day?: number;
+    /** Cloud cover percentage 0-100 (OpenWeather `clouds.all`) */
+    cloud_cover?: number;
+    /** Visibility in meters, max 10000 (OpenWeather `visibility`) */
+    visibility?: number;
+    /** Wind speed in the request's display unit (mph imperial / m/s metric) */
+    wind_speed?: number;
+    wind_gust?: number;
+    /** Precipitation over the last hour in mm (OpenWeather `rain.1h` / `snow.1h`) */
+    precipitation_1h?: number;
   };
   daily?: {
     time?: string[];
@@ -116,6 +125,14 @@ export interface ResolvedWeather {
   coverage: CloudCoverage;
   phase: WeatherPhase;
   timePhase: number;
+  /** Continuous cloud-sky fraction 0-1, from OpenWeather `clouds.all` clamped to the condition's plausible range */
+  cloudFraction: number;
+  /** Cloud optical thickness 0-1 — drives how dark/heavy the deck renders */
+  cloudDensity: number;
+  /** Wind 0-1 blending the visual profile with the reported wind speed */
+  windEffective: number;
+  /** Wall-clock hour 0-24 derived from clockTime (drives shader sun position; preview-safe) */
+  clockHour: number;
   dayTime: boolean;
   timeKey: TimeKey;
   temperature: number;

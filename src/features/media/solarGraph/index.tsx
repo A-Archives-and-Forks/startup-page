@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { readSettings } from '@/lib/settings';
-import { calculateSolarContext, getCurrentLst, sunElevation } from './solarMath';
+import { useSettingsStore } from '@/features/settings/stores';
+import { calculateSolarContext, getCurrentLst, sunElevation, dayFractionToHour } from './solarMath';
 import { renderSky } from './renderSky';
 import { createStarField, renderStars } from './renderStars';
 import { renderCurve } from './renderCurve';
@@ -27,6 +28,8 @@ export default function SolarGraph() {
     pixelRatio: 1,
     renderWidth: 0,
     renderHeight: 0,
+    _realTimeTimer: null as ReturnType<typeof setInterval> | null,
+    _frameFunc: null as FrameRequestCallback | null,
   });
 
   useEffect(() => {
@@ -184,9 +187,12 @@ export default function SolarGraph() {
 
     // Mouse event handlers for hover interaction
     function onMouseMove(e) {
+      if (!state.solar) return;
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
-      const hour = Math.max(0, Math.min(24, (mouseX / rect.width) * 24));
+      // X is the warped day position, not linear clock time — invert the warp
+      // so the cursor tracks the fixed curve.
+      const hour = dayFractionToHour(mouseX / rect.width, state.solar);
       state.hovering = true;
       state.hoverHour = hour;
     }
@@ -198,6 +204,18 @@ export default function SolarGraph() {
 
     canvas.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('mouseleave', onMouseLeave);
+
+    // React to coordinate changes from the settings panel without a reload.
+    let lastLat = settings.latitude;
+    let lastLng = settings.longitude;
+    const unsubscribeSettings = useSettingsStore.subscribe((storeState) => {
+      const { latitude, longitude } = storeState.settings;
+      if (latitude !== lastLat || longitude !== lastLng) {
+        lastLat = latitude;
+        lastLng = longitude;
+        initSolar(latitude ?? 40.7128, longitude ?? -74.006);
+      }
+    });
 
     // Pause the render loop when the tab is hidden to avoid burning CPU in background
     function onVisibilityChange() {
@@ -218,6 +236,7 @@ export default function SolarGraph() {
       if (sweepTimer) clearInterval(sweepTimer);
       if (state._realTimeTimer) clearInterval(state._realTimeTimer);
       resizeObserver.disconnect();
+      unsubscribeSettings();
       canvas.removeEventListener('mousemove', onMouseMove);
       canvas.removeEventListener('mouseleave', onMouseLeave);
       document.removeEventListener('visibilitychange', onVisibilityChange);

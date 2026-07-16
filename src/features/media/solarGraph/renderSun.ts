@@ -46,9 +46,9 @@ function drawEllipseGlow(ctx, cx, cy, radius, scaleX, scaleY, stops) {
 // At horizon: wide & flat bloom. High sun: narrow & taller bloom.
 export function renderSun(ctx, width, height, lst, solar, horizonY, elev) {
   if (elev === undefined) elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
-  const { x: sunX, y: sunY } = solarToCanvas(
-    lst, elev, width, height, solar, horizonY
-  );
+  // Position comes from the fixed curve; the real elevation still drives
+  // color temperature and glow shape below.
+  const { x: sunX, y: sunY } = solarToCanvas(lst, width, height, solar);
 
   const isBelowHorizon = elev < 0;
   const { r: ar, g: ag, b: ab } = getAtmosColor(lst, elev);

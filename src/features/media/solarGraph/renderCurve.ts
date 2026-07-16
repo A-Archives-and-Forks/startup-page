@@ -1,67 +1,67 @@
+import { hourToDayFraction, normalizedElevation, solarDayAnchors } from './solarMath';
+
 const CURVE_COLOR = '#f0ebd8';
 const HORIZON_COLOR = '#f0ebd8';
 
-// Map elevation (degrees) to canvas Y
-function elevToCanvasY(elevation, maxEl, minEl, horizonY, canvasHeight) {
-  if (elevation >= 0) {
-    return horizonY * (1 - elevation / maxEl);
-  }
-  const below = canvasHeight - horizonY;
-  return horizonY + (Math.abs(elevation) / Math.abs(minEl)) * below;
+// Fixed curve geometry — identical for every location and date. The noon
+// peak and midnight trough leave breathing room for the sun glow and
+// tooltips; the horizon line moves within this band by season.
+const PEAK_FRAC = 0.16;
+const TROUGH_FRAC = 0.88;
+const CURVE_SAMPLES = 256;
+
+// Map the normalized curve value (+1 noon peak … -1 midnight trough) to
+// canvas Y with a single linear scale.
+function normElevToY(normElev, height) {
+  return height * (PEAK_FRAC + ((1 - normElev) / 2) * (TROUGH_FRAC - PEAK_FRAC));
 }
 
-// Convert solar hour + elevation (degrees) to canvas coordinates
-export function solarToCanvas(hour, elevation, width, height, solar, horizonY) {
-  const x = (hour / 24) * width;
-  const y = elevToCanvasY(
-    elevation,
-    solar.maxElevation,
-    solar.minElevation,
-    horizonY,
-    height
-  );
-  return { x, y };
+// The horizon sits where the fixed curve crosses it at today's real
+// sunrise/sunset: the crossing is halfDay hours from solar noon, so its
+// height directly encodes day length (low horizon = long day).
+export function getHorizonY(height, solar) {
+  const { halfDay } = solarDayAnchors(solar);
+  const horizonNorm = normalizedElevation(0.5 + halfDay / 24);
+  return Math.round(normElevToY(horizonNorm, height)) + 0.5;
 }
 
-// Cache the Path2D for the solar curve — rebuilt only when solar data or canvas size changes.
-// Using object identity for `solar` is safe because calculateSolarContext always returns a new object.
+// Convert a local hour to canvas coordinates on the fixed curve.
+// X is linear time centered on solar noon; Y follows the fixed cosine.
+export function solarToCanvas(hour, width, height, solar) {
+  const u = hourToDayFraction(hour, solar);
+  return {
+    x: u * width,
+    y: normElevToY(normalizedElevation(u), height),
+  };
+}
+
+// The curve geometry only depends on canvas size — cache the Path2D.
 let _cachedPath: Path2D | null = null;
-let _cacheTag: { solar: object; width: number; height: number } | null = null;
+let _cacheTag: { width: number; height: number } | null = null;
 
-function getSolarPath(solar, width, height, horizonY): Path2D {
-  if (
-    _cacheTag &&
-    _cacheTag.solar === solar &&
-    _cacheTag.width === width &&
-    _cacheTag.height === height
-  ) {
+function getSolarPath(width, height): Path2D {
+  if (_cacheTag && _cacheTag.width === width && _cacheTag.height === height) {
     return _cachedPath!;
   }
   const path = new Path2D();
-  const { curveHours, curveElevations } = solar;
-  for (let i = 0; i < curveHours.length; i++) {
-    const { x, y } = solarToCanvas(curveHours[i], curveElevations[i], width, height, solar, horizonY);
+  for (let i = 0; i <= CURVE_SAMPLES; i++) {
+    const u = i / CURVE_SAMPLES;
+    const x = u * width;
+    const y = normElevToY(normalizedElevation(u), height);
     if (i === 0) path.moveTo(x, y);
     else path.lineTo(x, y);
   }
   _cachedPath = path;
-  _cacheTag = { solar, width, height };
+  _cacheTag = { width, height };
   return path;
 }
 
 // Render the solar elevation curve and horizon line
 export function renderCurve(ctx, width, height, solar) {
-  // Position horizon proportional to annual elevation range
-  const horizonFrac =
-    solar.maxElevation / (solar.maxElevation - solar.minElevation);
-  const horizonY = Math.max(
-    height * 0.2,
-    Math.min(height * 0.85, height * horizonFrac)
-  );
-  const crispHorizonY = Math.round(horizonY) + 0.5;
+  const crispHorizonY = getHorizonY(height, solar);
 
-  // Reuse cached Path2D — the 1440-point loop only runs when data or canvas size changes
-  const path = getSolarPath(solar, width, height, horizonY);
+  // Reuse cached Path2D — rebuilt only when the canvas size changes
+  const path = getSolarPath(width, height);
 
   // Multi-width soft glow without shadowBlur (shadowBlur on complex paths is the main perf bottleneck)
   ctx.save();

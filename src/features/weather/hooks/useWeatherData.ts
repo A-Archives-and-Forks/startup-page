@@ -10,7 +10,11 @@ interface OWCurrentResponse {
   cod: number;
   weather: Array<{ id: number; main: string; description: string }>;
   main: { temp: number; humidity: number };
-  wind?: { speed: number; deg: number };
+  wind?: { speed: number; deg: number; gust?: number };
+  clouds?: { all: number };
+  visibility?: number;
+  rain?: { "1h"?: number; "3h"?: number };
+  snow?: { "1h"?: number; "3h"?: number };
   sys: { sunrise: number; sunset: number };
   name: string;
   dt: number;
@@ -106,9 +110,14 @@ async function fetchWeather(
     source: "OpenWeather",
     unit,
     current: {
-      temperature_2m: current.main.temp,
-      weather_code:   w.id,
-      is_day:         isDay,
+      temperature_2m:   current.main.temp,
+      weather_code:     w.id,
+      is_day:           isDay,
+      cloud_cover:      current.clouds?.all,
+      visibility:       current.visibility,
+      wind_speed:       current.wind?.speed,
+      wind_gust:        current.wind?.gust,
+      precipitation_1h: current.rain?.["1h"] ?? current.snow?.["1h"],
     },
     daily: {
       time:                          dailyTime,

@@ -63,15 +63,15 @@ export default function AccountButton() {
           <HiOutlineUser />
           <StatusDot color="bg-zinc-400" title="Local mode" />
         </button>
-        <DialogContent className="w-[min(92vw,420px)]">
+        <DialogContent className="w-[min(92vw,420px)] border-border/60 bg-background/98 p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 pr-8">
               <HiOutlineComputerDesktop className="text-xl" />
               You&apos;re in local mode
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 px-1 pb-1">
-            <p className="text-sm text-foreground/80">
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-foreground/80">
               Your settings, bookmarks, and themes are stored <strong>in this browser only</strong>{" "}
               (IndexedDB with a localStorage mirror). They won&apos;t follow you to other devices,
               and clearing browser data will remove them — you can export a backup from Settings.
@@ -122,11 +122,11 @@ export default function AccountButton() {
           )}
           <StatusDot color={dotColor} title={dotTitle} />
         </button>
-        <DialogContent className="w-[min(92vw,420px)]">
+        <DialogContent className="w-[min(92vw,420px)] border-border/60 bg-background/98 p-6">
           <DialogHeader>
-            <DialogTitle>Your Account</DialogTitle>
+            <DialogTitle className="pr-8">Your Account</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 px-1 pb-1">
+          <div className="space-y-5">
             <div className="flex items-center gap-3">
               {user?.imageUrl && (
                 <img src={user.imageUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
@@ -137,7 +137,7 @@ export default function AccountButton() {
               </div>
             </div>
 
-            <div className="rounded-md border border-foreground/10 p-3">
+            <div className="rounded-lg border border-foreground/10 bg-foreground/[0.03] p-4">
               <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
                 {synced ? <HiOutlineCloud className="text-base" /> : <HiOutlineComputerDesktop className="text-base" />}
                 Data source

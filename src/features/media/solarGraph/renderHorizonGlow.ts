@@ -31,7 +31,7 @@ function drawEllipseGlow(ctx, cx, cy, radius, scaleX, scaleY, stops) {
 // Sunset reverses: starts narrow/tall, flattens as sun descends.
 export function renderHorizonGlow(ctx, width, height, lst, solar, horizonY, elev) {
   if (elev === undefined) elev = sunElevation(solar.lat, solar.lng, lst, solar.doy);
-  const { x: sunX } = solarToCanvas(lst, elev, width, height, solar, horizonY);
+  const { x: sunX } = solarToCanvas(lst, width, height, solar);
 
   // Active within ±15° of horizon
   if (Math.abs(elev) > 15) return;
