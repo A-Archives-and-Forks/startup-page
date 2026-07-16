@@ -23,7 +23,7 @@ interface WeatherBoxContentProps {
 
 function LoadingState(): React.ReactElement {
   return (
-    <div className="flex h-full w-full items-center justify-center rounded-[inherit] bg-muted/30">
+    <div className="pointer-events-none flex h-full w-full items-center justify-center rounded-[inherit] bg-muted/30">
       <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
     </div>
   );
@@ -31,7 +31,7 @@ function LoadingState(): React.ReactElement {
 
 function ErrorState({ message }: { message: string }): React.ReactElement {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-[inherit] bg-muted/50 p-4 text-center text-muted-foreground">
+    <div className="pointer-events-none flex h-full w-full flex-col items-center justify-center rounded-[inherit] bg-muted/50 p-4 text-center text-muted-foreground">
       <p className="text-sm font-medium">Weather unavailable</p>
       <p className="mt-1 text-xs opacity-70">{message}</p>
     </div>
@@ -49,7 +49,7 @@ function WeatherBoxContent({
 
   const resolved = resolveWeather(data, clockTime);
   const { condition, gradient } = resolved;
-  const source = data.source ?? "Open-Meteo";
+  const source = data.source;
   const horizonGlowOpacity = resolved.horizonGlow * (resolved.timePhase <= 1 ? 0.28 : 0.34);
 
   return (

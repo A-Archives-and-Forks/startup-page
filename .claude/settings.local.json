@@ -20,7 +20,9 @@
       "Bash(pkill -f \"vercel.*dev --listen 3211\")",
       "Bash(curl -s -m 2 http://localhost:3211/api/health)",
       "Bash(grep -oE '@.*$')",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Merge origin/main \\(v2/optimize\\) into v2/cloud *)"
     ]
   }
 }

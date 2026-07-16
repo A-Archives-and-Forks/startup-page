@@ -1,34 +1,41 @@
-import { StrictMode, type ReactNode } from "react";
+import { StrictMode, lazy, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import "@/assets/styles/index.css";
-import { hydrateSettings } from "@/lib/settings";
+import { hydrateSettingsFromIndexedDb } from "@/lib/settings";
+import { useSettingsStore } from "@/features/settings/stores";
 import { ClerkErrorBoundary, ClerkUnavailableProvider } from "@/features/auth/ClerkStatus";
 
-// views without layouts
-import IndexPage from "@/features/dashboard/pages";
-import WeatherPreviewPage from "@/pages/WeatherPreview";
+import AppLayout from "@/components/layout/AppLayout";
+
+// Secondary routes are split out of the first-paint bundle — they load on
+// navigation, so the dashboard shell isn't blocked downloading their code.
+const BookmarksPage = lazy(() => import("@/pages/BookmarksPage"));
+const ResourceVaultPage = lazy(() => import("@/pages/ResourceVaultPage"));
+const WeatherPreviewPage = lazy(() => import("@/pages/WeatherPreview"));
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 
-void hydrateSettings().finally(async () => {
-  const rootElement = document.getElementById("root");
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Root element was not found.");
 
-  if (!rootElement) {
-    throw new Error("Root element was not found.");
-  }
-
-  const routes = (
-    <HashRouter>
+const routes = (
+  <HashRouter>
+    <Suspense fallback={null}>
       <Routes>
-        <Route path="/" element={<IndexPage />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" />
+          <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/resources" element={<ResourceVaultPage />} />
+        </Route>
         <Route path="/weather-preview" element={<WeatherPreviewPage />} />
       </Routes>
-    </HashRouter>
-  );
+    </Suspense>
+  </HashRouter>
+);
 
+async function render() {
   let content: ReactNode;
-
   if (CLERK_KEY) {
     // Dynamic import keeps Clerk out of the initial bundle for self-hosted installs
     const { ClerkProvider } = await import("@clerk/clerk-react");
@@ -42,12 +49,14 @@ void hydrateSettings().finally(async () => {
       </ClerkErrorBoundary>
     );
   } else {
-    content = (
-      <ClerkUnavailableProvider>
-        {routes}
-      </ClerkUnavailableProvider>
-    );
+    content = <ClerkUnavailableProvider>{routes}</ClerkUnavailableProvider>;
   }
-
   createRoot(rootElement).render(<StrictMode>{content}</StrictMode>);
+}
+
+void render();
+
+// Sync from IndexedDB in the background (more reliable than localStorage for large settings).
+void hydrateSettingsFromIndexedDb().then(() => {
+  useSettingsStore.getState().reloadSettings();
 });

@@ -114,36 +114,20 @@ void main() {
 }
 `;
 
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(message || "Shader compile failed");
-  }
-
-  return shader;
-}
-
+// Compile and link without blocking status checks — status verified lazily in rAF.
 function createProgram(gl) {
-  const vertex = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fragment = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VERTEX_SHADER);
+  gl.compileShader(vs);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, FRAGMENT_SHADER);
+  gl.compileShader(fs);
   const program = gl.createProgram();
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
   gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(message || "Shader link failed");
-  }
-
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
   return program;
 }
 
@@ -154,6 +138,8 @@ interface AuroraLightsProps {
 export default function AuroraLights({ intensity = 1 }: AuroraLightsProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [supported, setSupported] = useState(true);
+  const intensityRef = useRef(intensity);
+  intensityRef.current = intensity;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -170,27 +156,23 @@ export default function AuroraLights({ intensity = 1 }: AuroraLightsProps): Reac
     }
 
     let animationFrame = 0;
-    let program: WebGLProgram;
-
-    try {
-      program = createProgram(gl);
-    } catch {
-      setSupported(false);
-      return undefined;
-    }
+    const program = createProgram(gl);
+    const khrParallel = gl.getExtension("KHR_parallel_shader_compile") as { COMPLETION_STATUS_KHR: number } | null;
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
 
-    const position = gl.getAttribLocation(program, "a_position");
-    const resolution = gl.getUniformLocation(program, "u_resolution");
-    const time = gl.getUniformLocation(program, "u_time");
-    const intensityUniform = gl.getUniformLocation(program, "u_intensity");
     const startedAt = performance.now();
 
+    let glReady = false;
+    let position = -1;
+    let resolution: WebGLUniformLocation | null = null;
+    let time: WebGLUniformLocation | null = null;
+    let intensityUniform: WebGLUniformLocation | null = null;
+
     function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1);
       const width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
       const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
 
@@ -202,8 +184,34 @@ export default function AuroraLights({ intensity = 1 }: AuroraLightsProps): Reac
       gl.viewport(0, 0, width, height);
     }
 
+    resize();
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+
+    const AURORA_FRAME_MS = 1000 / 24;
+    let lastFrameTime = 0;
+
     function render(now: number) {
-      resize();
+      animationFrame = requestAnimationFrame(render);
+      if (!canvas.clientWidth) return; // hidden (ancestor display:none) — skip GPU work
+
+      if (!glReady) {
+        if (khrParallel && !gl.getProgramParameter(program, khrParallel.COMPLETION_STATUS_KHR)) return;
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          setSupported(false);
+          cancelAnimationFrame(animationFrame);
+          return;
+        }
+        position        = gl.getAttribLocation(program, "a_position");
+        resolution      = gl.getUniformLocation(program, "u_resolution");
+        time            = gl.getUniformLocation(program, "u_time");
+        intensityUniform = gl.getUniformLocation(program, "u_intensity");
+        glReady = true;
+      }
+
+      if (now - lastFrameTime < AURORA_FRAME_MS) return;
+      lastFrameTime = now;
+
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
@@ -212,19 +220,19 @@ export default function AuroraLights({ intensity = 1 }: AuroraLightsProps): Reac
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
       gl.uniform2f(resolution, canvas.width, canvas.height);
       gl.uniform1f(time, (now - startedAt) / 1000);
-      gl.uniform1f(intensityUniform, Math.max(0, Math.min(intensity, 1)));
+      gl.uniform1f(intensityUniform, Math.max(0, Math.min(intensityRef.current, 1)));
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      animationFrame = requestAnimationFrame(render);
     }
 
     animationFrame = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [intensity]);
+  }, []);
 
   if (!supported) {
     return <div className="weather-aurora-fallback absolute inset-0 pointer-events-none" aria-hidden="true" />;
