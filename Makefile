@@ -1,61 +1,49 @@
 # Start Page Makefile
 # Simplifies common development tasks
 #
-# Prerequisites for cloud backend targets:
-#   Python 3.11+  │  pnpm  │  Stripe CLI (https://stripe.com/docs/stripe-cli)
+# Prerequisites for cloud targets:
+#   pnpm  │  Vercel CLI (via npx)  │  Stripe CLI (https://stripe.com/docs/stripe-cli)
 # Run in Git Bash, WSL, or any Unix shell.
-
-VENV    := backend/.venv
-PY      := $(VENV)/bin/python
-PIP     := $(VENV)/bin/pip
-ALEMBIC := $(VENV)/bin/alembic
-UVICORN := $(VENV)/bin/uvicorn
 
 .PHONY: help install setup start build build-local build-vercel preview serve deploy deploy-vercel clean dev \
         server-install server-start all-install \
-        backend-env backend-install backend migrate migrate-down migrate-make migrate-history migrate-current \
-        stripe stripe-secret health stripe-test-checkout stripe-test-sub backend-clean
+        dev-cloud env-pull db-generate db-migrate db-studio \
+        stripe stripe-secret health stripe-test-checkout stripe-test-sub
 
 # Default target
 help:
 	@echo ""
 	@echo "Frontend"
-	@echo "  install        - Install frontend (pnpm) dependencies"
-	@echo "  start / dev    - Start Vite dev server"
+	@echo "  install        - Install (pnpm) dependencies"
+	@echo "  start / dev    - Start Vite dev server (local-only mode, no API)"
 	@echo "  build          - Build for production"
 	@echo "  build-local    - Build with base '/'"
-	@echo "  build-vercel   - Build for Vercel"
+	@echo "  build-vercel   - Run DB migrations + build for Vercel"
 	@echo "  preview        - Preview production build"
 	@echo "  serve          - Build + serve on port 8000"
-	@echo "  deploy         - Deploy to GitHub Pages"
-	@echo "  deploy-vercel  - Deploy to Vercel from local machine"
+	@echo "  deploy         - Deploy to GitHub Pages (keyless local-only demo)"
+	@echo "  deploy-vercel  - Deploy to Vercel production from local machine"
 	@echo "  clean          - Remove dist/ and .vite cache"
 	@echo ""
-	@echo "Cloud backend  (run each service in its own terminal)"
-	@echo "  backend-env    - Create backend/.env from .env.example"
-	@echo "  backend-install- Create Python venv + install deps"
-	@echo "  backend        - Start FastAPI on http://localhost:8000"
-	@echo "  stripe         - Forward Stripe events to local backend"
-	@echo "  stripe-secret  - Print the local Stripe webhook secret"
-	@echo "  health         - Ping the local backend health endpoint"
+	@echo "Cloud (Vercel serverless /api)"
+	@echo "  dev-cloud      - Start full stack (frontend + /api) via 'vercel dev' on :3000"
+	@echo "  env-pull       - Pull Development env vars from Vercel into .env.local"
+	@echo "  health         - Ping the local API health endpoint"
 	@echo ""
-	@echo "Database (Alembic)"
-	@echo "  migrate        - Apply all pending migrations"
-	@echo "  migrate-down   - Roll back the last migration"
-	@echo "  migrate-make   - Auto-generate a migration  (name=<slug>)"
-	@echo "  migrate-history- Show migration history"
-	@echo "  migrate-current- Show current DB revision"
+	@echo "Database (Drizzle / Neon)"
+	@echo "  db-generate    - Generate SQL migration from api/_lib/schema.ts"
+	@echo "  db-migrate     - Apply migrations (uses DATABASE_URL from .env.local)"
+	@echo "  db-studio      - Open Drizzle Studio against the database"
 	@echo ""
-	@echo "Stripe test events"
+	@echo "Stripe (local webhook testing)"
+	@echo "  stripe         - Forward Stripe test events to localhost:3000"
+	@echo "  stripe-secret  - Print the local Stripe webhook signing secret"
 	@echo "  stripe-test-checkout - Trigger checkout.session.completed"
 	@echo "  stripe-test-sub      - Trigger customer.subscription.created"
-	@echo ""
-	@echo "  backend-clean  - Remove Python venv"
-	@echo "  all-install    - Frontend + backend install in one shot"
 
 # Install frontend dependencies
 install:
-	@echo "Installing frontend dependencies..."
+	@echo "Installing dependencies..."
 	pnpm install
 
 # Install server dependencies (legacy Express server)
@@ -63,8 +51,8 @@ server-install:
 	@echo "Installing server dependencies..."
 	pnpm install --filter server
 
-# Install all dependencies (frontend + Python backend)
-all-install: install backend-install
+# Install all dependencies
+all-install: install
 
 # Initial project setup
 setup:
@@ -73,7 +61,7 @@ setup:
 	@$(MAKE) build
 	@echo "Setup complete. Run 'make dev' to start the development server."
 
-# Start development server
+# Start development server (local-only mode: no /api, no Clerk unless .env.local provides keys)
 start:
 	@echo "Starting development server..."
 	pnpm run dev
@@ -100,7 +88,7 @@ build-local:
 	@echo "Building for local deployment..."
 	pnpm run build:local
 
-# Build for Vercel deployment
+# Build for Vercel deployment (runs DB migrations first when DATABASE_URL is set)
 build-vercel:
 	@echo "Building for Vercel deployment..."
 	pnpm run build:vercel
@@ -137,62 +125,48 @@ quick-start: install css start
 full-setup: setup start
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cloud backend targets
+# Cloud targets (Vercel serverless /api + Neon + Clerk + Stripe)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
+# Full-stack local dev: serves the Vite app AND the /api functions on :3000.
+# Requires 'npx vercel login' + 'npx vercel link' once, and 'make env-pull' for secrets.
+dev-cloud:
+	npx vercel@latest dev --listen 3000
 
-backend-env: ## Create backend/.env from .env.example (skips if already exists)
-	@if [ ! -f backend/.env ]; then \
-		cp backend/.env.example backend/.env; \
-		echo "Created backend/.env — fill in your Clerk, Stripe, and Neon secrets."; \
-	else \
-		echo "backend/.env already exists — skipping."; \
-	fi
+# Pull env vars from Vercel: .env.local + .env.dev (Development), .env.prd (Production)
+env-pull:
+	npx vercel@latest env pull .env.local --environment development --yes
+	npx vercel@latest env pull .env.dev --environment development --yes
+	npx vercel@latest env pull .env.prd --environment production --yes
+	@echo "Wrote .env.local, .env.dev, and .env.prd from Vercel."
 
-backend-install: ## Create Python venv and install backend/requirements.txt
-	python3 -m venv $(VENV)
-	$(PIP) install --upgrade pip -q
-	$(PIP) install -r backend/requirements.txt -q
-	@echo "Backend deps installed in $(VENV)"
+# ── Database (Drizzle / Neon) ─────────────────────────────────────────────────
 
-# ── Database (Alembic) ────────────────────────────────────────────────────────
+db-generate: ## Generate a SQL migration from schema changes
+	pnpm run db:generate
 
-migrate: ## Apply all pending migrations (uses DATABASE_URL in backend/.env)
-	cd backend && ../$(ALEMBIC) upgrade head
+db-migrate: ## Apply pending migrations (DATABASE_URL from .env.local or env)
+	pnpm run db:migrate
 
-migrate-down: ## Roll back the last migration
-	cd backend && ../$(ALEMBIC) downgrade -1
+db-studio: ## Browse the database with Drizzle Studio
+	pnpm run db:studio
 
-migrate-make: ## Auto-generate a new migration: make migrate-make name=add_sessions
-	@test -n "$(name)" || (echo "Usage: make migrate-make name=<snake_case_name>"; exit 1)
-	cd backend && ../$(ALEMBIC) revision --autogenerate -m "$(name)"
+# ── Local servers ─────────────────────────────────────────────────────────────
 
-migrate-history: ## Show full Alembic migration history
-	cd backend && ../$(ALEMBIC) history --verbose
-
-migrate-current: ## Show the current DB revision
-	cd backend && ../$(ALEMBIC) current
-
-# ── Local servers (each in its own terminal) ──────────────────────────────────
-
-backend: ## Start FastAPI with hot-reload on http://localhost:8000
-	cd backend && ../$(UVICORN) app.main:app --reload --host 127.0.0.1 --port 8000
-
-stripe: ## Forward Stripe test events → localhost:8000/api/webhooks/stripe
-	@echo "Copy the whsec_... line below into STRIPE_WEBHOOK_SECRET in backend/.env"
+stripe: ## Forward Stripe test events → localhost:3000/api/webhooks/stripe
+	@echo "Copy the whsec_... line below into STRIPE_WEBHOOK_SECRET in .env.local"
 	@echo ""
-	stripe listen --forward-to localhost:8000/api/webhooks/stripe
+	stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
 stripe-secret: ## Print the local Stripe webhook signing secret (for scripting)
 	stripe listen --print-secret
 
 # ── Health check ──────────────────────────────────────────────────────────────
 
-health: ## Ping the backend health endpoint
-	@curl -sf http://localhost:8000/health | python3 -m json.tool \
-	  && echo "Backend is up" \
-	  || echo "Backend not reachable — run: make backend"
+health: ## Ping the local API health endpoint
+	@curl -sf http://localhost:3000/api/health \
+	  && echo " — API is up" \
+	  || echo "API not reachable — run: make dev-cloud"
 
 # ── Stripe test events ────────────────────────────────────────────────────────
 
@@ -201,9 +175,3 @@ stripe-test-checkout: ## Trigger a test checkout.session.completed event
 
 stripe-test-sub: ## Trigger a test customer.subscription.created event
 	stripe trigger customer.subscription.created
-
-# ── Cleanup ───────────────────────────────────────────────────────────────────
-
-backend-clean: ## Remove the Python venv
-	rm -rf $(VENV)
-	@echo "Removed $(VENV)"

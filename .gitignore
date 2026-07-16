@@ -4,8 +4,13 @@ node_modules
 # vscode
 .vscode
 
-# config files
+# settings exports contain personal API credentials — never commit
+startup-page-settings-*.json
+
+# config files (secrets — never commit; .env.example is the tracked template)
 .env
+.env.dev
+.env.prd
 .env.development
 .env.production
 .env.staging
@@ -22,3 +27,5 @@ dist/
 build/
 .vercel
 .env*.local
+.env*
+!.env.example

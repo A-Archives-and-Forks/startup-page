@@ -78,7 +78,13 @@ function normalizeSettingsShape(settings) {
   };
 }
 
-function normalizeStoredRecord(record) {
+interface StoredSettingsRecord {
+  schemaVersion: number;
+  updatedAt: string;
+  settings: Record<string, any>;
+}
+
+function normalizeStoredRecord(record): StoredSettingsRecord | null {
   if (!record) {
     return null;
   }
@@ -128,8 +134,8 @@ function parseSettings(rawSettings) {
   }
 }
 
-function getIndexedDb() {
-  return new Promise((resolve, reject) => {
+function getIndexedDb(): Promise<IDBDatabase | null> {
+  return new Promise<IDBDatabase | null>((resolve, reject) => {
     if (typeof window === "undefined" || !window.indexedDB) {
       resolve(null);
       return;
@@ -152,13 +158,13 @@ function getIndexedDb() {
   });
 }
 
-async function readSettingsFromIndexedDb() {
+async function readSettingsFromIndexedDb(): Promise<StoredSettingsRecord | null> {
   const db = await getIndexedDb();
   if (!db) {
     return null;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<StoredSettingsRecord | null>((resolve, reject) => {
     const transaction = db.transaction(SETTINGS_STORE_NAME, "readonly");
     const store = transaction.objectStore(SETTINGS_STORE_NAME);
     const request = store.get(SETTINGS_RECORD_KEY);
@@ -198,7 +204,7 @@ async function writeSettingsToIndexedDb(settings) {
     settings: normalizeSettingsShape(settings),
   };
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(
       [SETTINGS_STORE_NAME, BACKUPS_STORE_NAME],
       "readwrite"
@@ -240,7 +246,7 @@ async function clearSettingsFromIndexedDb() {
     return;
   }
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(
       [SETTINGS_STORE_NAME, BACKUPS_STORE_NAME],
       "readwrite"
@@ -379,31 +385,53 @@ export async function hydrateSettingsFromIndexedDb() {
 }
 
 /**
- * Cloud-aware hydration used on app startup.
- * If the user is signed in with an active subscription, pulls from the cloud
- * and overwrites local storage when the cloud copy is newer. Falls back to
- * IndexedDB on any error or when cloud sync is not available.
+ * Hydration used on app startup — local only. Clerk hasn't loaded yet at this
+ * point, so cloud sync happens later via syncSettingsFromCloud() (called from
+ * AuthBridge once the session and subscription status resolve).
  */
 export async function hydrateSettings() {
-  const { useAuthStore } = await import("@/features/auth/stores");
-  const authState = useAuthStore.getState();
-
-  if (authState.hasSyncAccess()) {
-    try {
-      const { pullSettingsFromCloud } = await import("@/lib/cloudSync");
-      const cloudResult = await pullSettingsFromCloud();
-      if (cloudResult) {
-        const normalized = normalizeSettingsShape(cloudResult.settings);
-        writeSettingsToLocalStorage(normalized);
-        void writeSettingsToIndexedDb(normalized);
-        return normalized;
-      }
-    } catch {
-      // Fall through to local
-    }
-  }
-
   return hydrateSettingsFromIndexedDb();
+}
+
+/**
+ * Pull cloud settings and reconcile with the local copy by timestamp.
+ * - Cloud copy newer (or no local copy): apply cloud locally, return it.
+ * - Local copy newer (offline edits): keep local, push it up, return null.
+ * Returns the applied settings when local state changed, otherwise null.
+ */
+export async function syncSettingsFromCloud() {
+  try {
+    const { pullSettingsFromCloud, schedulePushToCloud } = await import("@/lib/cloudSync");
+    const [cloudResult, localRecord] = await Promise.all([
+      pullSettingsFromCloud(),
+      readSettingsFromIndexedDb(),
+    ]);
+
+    if (!cloudResult) {
+      // Nothing in the cloud yet — seed it with the local copy.
+      if (localRecord) {
+        schedulePushToCloud(localRecord.settings, localRecord.updatedAt);
+      }
+      return null;
+    }
+
+    const cloudUpdatedAt =
+      Date.parse(cloudResult.clientUpdatedAt || cloudResult.serverUpdatedAt || "") || 0;
+    const localUpdatedAt = localRecord ? Date.parse(localRecord.updatedAt) || 0 : 0;
+
+    if (cloudUpdatedAt >= localUpdatedAt) {
+      const normalized = normalizeSettingsShape(cloudResult.settings);
+      writeSettingsToLocalStorage(normalized);
+      void writeSettingsToIndexedDb(normalized);
+      return normalized;
+    }
+
+    // Local wins — sync it up instead of clobbering offline edits.
+    schedulePushToCloud(localRecord.settings, localRecord.updatedAt);
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getStorageDiagnostics() {

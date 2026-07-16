@@ -9,7 +9,18 @@
       "Bash(C:\\\\Program Files\\\\nodejs\\\\node.exe *)",
       "PowerShell(Select-String *)",
       "PowerShell(cmd /c \"node --version\" 2>&1)",
-      "PowerShell($env:PATH -split ';')"
+      "PowerShell($env:PATH -split ';')",
+      "Bash(vercel whoami *)",
+      "Bash(pnpm --version)",
+      "Bash(git rm *)",
+      "Bash(curl -sf http://localhost:3211/api/health)",
+      "Bash(break)",
+      "Bash(curl -s -o /dev/null -w \"settings no-auth: %{http_code}\\\\n\" http://localhost:3211/api/settings)",
+      "Bash(curl -s http://localhost:3211/api/settings)",
+      "Bash(pkill -f \"vercel.*dev --listen 3211\")",
+      "Bash(curl -s -m 2 http://localhost:3211/api/health)",
+      "Bash(grep -oE '@.*$')",
+      "Bash(gh auth *)"
     ]
   }
 }

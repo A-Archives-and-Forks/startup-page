@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-const API_URL = import.meta.env.VITE_API_URL as string;
+// Same-origin by default; self-hosters can point at a remote API.
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 interface UpgradeModalProps {
   open: boolean;
