@@ -2731,6 +2731,9 @@
 .read-tag-learn { --read-tag-color: #10b981; }
 .read-tag-join { --read-tag-color: #22c55e; }
 .read-tag-follow { --read-tag-color: #84cc16; }
+.read-tag-travel { --read-tag-color: #0ea5e9; }
+.read-tag-work { --read-tag-color: #3b82f6; }
+.read-tag-reference { --read-tag-color: #94a3b8; }
 
 .read-form {
   display: grid;

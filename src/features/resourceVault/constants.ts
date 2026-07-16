@@ -8,6 +8,9 @@ export const DEFAULT_READ_TAGS = [
   "Learn",
   "Join",
   "Follow",
+  "Travel",
+  "Work",
+  "Reference",
 ] as const;
 
 export const READ_TAG_COLORS: Record<string, string> = {
@@ -20,4 +23,7 @@ export const READ_TAG_COLORS: Record<string, string> = {
   Learn: "read-tag-learn",
   Join: "read-tag-join",
   Follow: "read-tag-follow",
+  Travel: "read-tag-travel",
+  Work: "read-tag-work",
+  Reference: "read-tag-reference",
 };
