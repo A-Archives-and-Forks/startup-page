@@ -15,7 +15,7 @@ export function linspace(start, stop, n) {
 export function getDayOfYear() {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
-  return Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function tzOffsetHours() {
@@ -70,6 +70,55 @@ export function sunElevation(lat, lng, localHour, doy) {
 export function getCurrentLst() {
   const now = new Date();
   return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+}
+
+// ── Fixed-curve day mapping (Apple Watch Solar Graph style) ─────────────────
+// The rendered curve is identical for every location, timezone, and date:
+// a cosine with its trough at both edges (solar midnight) and its peak at
+// center (solar noon). The x-axis is LINEAR time centered on solar noon.
+// What varies by location/season is the HORIZON LINE: it sits at the height
+// where the fixed curve crosses it exactly at today's real sunrise and
+// sunset times — low in summer (mostly daylight above it), high in winter
+// (a thin daylight sliver).
+
+function wrap24(h) {
+  return ((h % 24) + 24) % 24;
+}
+
+// Signed offset in hours, wrapped into [-12, 12)
+function wrapSigned12(d) {
+  return ((((d + 12) % 24) + 24) % 24) - 12;
+}
+
+// Mapping anchors: solar noon (wrapped into the local day) and half the
+// day length. Wrapping makes remote lat/lng configurations — where
+// sunrise/sunset land outside 0–24h local time — behave correctly, and the
+// half-day clamp guards polar day/night where the sun never crosses the
+// horizon.
+export function solarDayAnchors(solar) {
+  const halfDay = Math.max(0.25, Math.min(11.75, (solar.sunset - solar.sunrise) / 2));
+  const solarNoon = wrap24((solar.sunrise + solar.sunset) / 2);
+  return { solarNoon, halfDay };
+}
+
+// Local hour → normalized day position u ∈ [0, 1]: linear time from solar
+// midnight (u = 0) through solar noon (u = 0.5) back to solar midnight.
+export function hourToDayFraction(hour, solar) {
+  const { solarNoon } = solarDayAnchors(solar);
+  return (wrapSigned12(hour - solarNoon) + 12) / 24;
+}
+
+// Normalized day position u ∈ [0, 1] → local hour (inverse of the above)
+export function dayFractionToHour(u, solar) {
+  const { solarNoon } = solarDayAnchors(solar);
+  const f = Math.max(0, Math.min(1, u));
+  return wrap24(solarNoon + (f * 24 - 12));
+}
+
+// The fixed curve: -1 at u = 0 and 1 (midnight troughs), 0 at 0.25 / 0.75
+// (horizon crossings), +1 at 0.5 (noon peak).
+export function normalizedElevation(u) {
+  return -Math.cos(2 * Math.PI * u);
 }
 
 // Format decimal hour (e.g. 5.683) to "5:41 AM"
@@ -157,6 +206,7 @@ export function calculateSolarContext(lat, lng) {
     minElevation,
     curveHours,
     curveElevations,
+    events: [] as ReturnType<typeof computeTwilightEvents>,
   };
 
   context.events = computeTwilightEvents(context);

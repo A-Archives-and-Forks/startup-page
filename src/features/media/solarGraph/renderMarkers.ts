@@ -41,7 +41,7 @@ function drawPill(ctx, x, y, text, fontSize) {
 export function renderMarkers(ctx, w, h, hoverHour, solar, horizonY, realLst) {
   // --- Time cursor: vertical dashed line from sun to horizon ---
   const hoverElev = sunElevation(solar.lat, solar.lng, hoverHour, solar.doy);
-  const { x: sunX, y: sunY } = solarToCanvas(hoverHour, hoverElev, w, h, solar, horizonY);
+  const { x: sunX, y: sunY } = solarToCanvas(hoverHour, w, h, solar);
 
   ctx.save();
   ctx.setLineDash([4, 4]);
@@ -57,10 +57,10 @@ export function renderMarkers(ctx, w, h, hoverHour, solar, horizonY, realLst) {
   // --- Event marker dots + labels (label only when cursor is near) ---
   const LABEL_PROXIMITY = 0.5; // hours — how close cursor must be to show label
   for (const evt of solar.events) {
-    const { type, hour, elevation, label } = evt;
+    const { type, hour, label } = evt;
     const colors = EVENT_COLORS[type];
     const radius = EVENT_RADIUS[type];
-    const { x, y } = solarToCanvas(hour, elevation, w, h, solar, horizonY);
+    const { x, y } = solarToCanvas(hour, w, h, solar);
 
     // Glow ring
     ctx.beginPath();
@@ -95,8 +95,7 @@ export function renderMarkers(ctx, w, h, hoverHour, solar, horizonY, realLst) {
   drawPill(ctx, sunX, Math.max(12, tooltipY), tooltipText, 12);
 
   // --- Current-time marker (shows "now" while scrubbing) ---
-  const realElev = sunElevation(solar.lat, solar.lng, realLst, solar.doy);
-  const { x: nowX, y: nowY } = solarToCanvas(realLst, realElev, w, h, solar, horizonY);
+  const { x: nowX, y: nowY } = solarToCanvas(realLst, w, h, solar);
 
   ctx.beginPath();
   ctx.arc(nowX, nowY, 3, 0, Math.PI * 2);
