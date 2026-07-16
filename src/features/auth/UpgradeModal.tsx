@@ -45,12 +45,12 @@ export default function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(92vw,460px)]">
+      <DialogContent className="w-[min(92vw,460px)] border-border/60 bg-background/98 p-6">
         <DialogHeader>
-          <DialogTitle>Cloud Sync — $0.99 / month</DialogTitle>
+          <DialogTitle className="pr-8">Cloud Sync — $0.99 / month</DialogTitle>
           <DialogDescription>Your settings, everywhere.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-5 px-1 pb-1">
+        <div className="space-y-5">
           <ul className="space-y-2 text-sm text-foreground/80">
             <li>✓ Bookmarks, vault, themes, and all preferences synced automatically</li>
             <li>✓ Works across every browser and device</li>
