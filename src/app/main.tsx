@@ -1,9 +1,10 @@
-import { StrictMode, lazy, Suspense } from "react";
+import { StrictMode, lazy, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import "@/assets/styles/index.css";
 import { hydrateSettingsFromIndexedDb } from "@/lib/settings";
 import { useSettingsStore } from "@/features/settings/stores";
+import { ClerkErrorBoundary, ClerkUnavailableProvider } from "@/features/auth/ClerkStatus";
 
 import AppLayout from "@/components/layout/AppLayout";
 
@@ -13,26 +14,47 @@ const BookmarksPage = lazy(() => import("@/pages/BookmarksPage"));
 const ResourceVaultPage = lazy(() => import("@/pages/ResourceVaultPage"));
 const WeatherPreviewPage = lazy(() => import("@/pages/WeatherPreview"));
 
+const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element was not found.");
 
-// Render immediately — the store already hydrates from localStorage synchronously.
-createRoot(rootElement).render(
-  <StrictMode>
-    <HashRouter>
-      <Suspense fallback={null}>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" />
-            <Route path="/bookmarks" element={<BookmarksPage />} />
-            <Route path="/resources" element={<ResourceVaultPage />} />
-          </Route>
-          <Route path="/weather-preview" element={<WeatherPreviewPage />} />
-        </Routes>
-      </Suspense>
-    </HashRouter>
-  </StrictMode>,
+const routes = (
+  <HashRouter>
+    <Suspense fallback={null}>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" />
+          <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/resources" element={<ResourceVaultPage />} />
+        </Route>
+        <Route path="/weather-preview" element={<WeatherPreviewPage />} />
+      </Routes>
+    </Suspense>
+  </HashRouter>
 );
+
+async function render() {
+  let content: ReactNode;
+  if (CLERK_KEY) {
+    // Dynamic import keeps Clerk out of the initial bundle for self-hosted installs
+    const { ClerkProvider } = await import("@clerk/clerk-react");
+    content = (
+      // ClerkErrorBoundary catches invalid keys, network failures, or any other
+      // Clerk init error and falls back to local-only mode automatically.
+      <ClerkErrorBoundary fallback={<ClerkUnavailableProvider>{routes}</ClerkUnavailableProvider>}>
+        <ClerkProvider publishableKey={CLERK_KEY} afterSignInUrl="/#/" afterSignUpUrl="/#/">
+          {routes}
+        </ClerkProvider>
+      </ClerkErrorBoundary>
+    );
+  } else {
+    content = <ClerkUnavailableProvider>{routes}</ClerkUnavailableProvider>;
+  }
+  createRoot(rootElement).render(<StrictMode>{content}</StrictMode>);
+}
+
+void render();
 
 // Sync from IndexedDB in the background (more reliable than localStorage for large settings).
 void hydrateSettingsFromIndexedDb().then(() => {

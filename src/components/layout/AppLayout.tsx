@@ -8,6 +8,9 @@ import { useSettingsStore } from "@/features/settings/stores";
 import ThemeProvider, { ThemeContext, type ThemeMode } from "@/components/layout/ThemeContext";
 import Toggle from "@/components/layout/ThemeToggle";
 import SettingsButton from "@/features/settings/components/SettingsButton";
+import AccountButton from "@/features/auth/AccountButton";
+import AuthBridge from "@/features/auth/AuthBridge";
+import { useIsClerkAvailable } from "@/features/auth/ClerkStatus";
 import CommandPalette from "@/components/layout/CommandPalette";
 import useKBarActions from "@/features/dashboard/hooks/useKBarActions";
 import DashboardPage from "@/features/dashboard/pages";
@@ -90,6 +93,7 @@ function ThemeSync() {
 }
 
 function AppLayoutInner() {
+  const isClerkAvailable = useIsClerkAvailable();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -167,6 +171,7 @@ function AppLayoutInner() {
       onWheel={handleWheel}
     >
       <ThemeSync />
+      {isClerkAvailable && <AuthBridge />}
       <VaultNavigationActions />
       <nav className="vault-nav-center" aria-label="Page navigation">
         <button
@@ -205,6 +210,7 @@ function AppLayoutInner() {
       </nav>
       <div className="fixed right-5 top-5 z-40 flex items-center gap-3 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">
         <Toggle />
+        {isClerkAvailable && <AccountButton />}
         <SettingsButton />
       </div>
       {/* Dashboard stays mounted across navigation so the WebGL context is never destroyed.

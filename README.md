@@ -135,14 +135,16 @@ Enter keys in **Settings → Content → Location and API Settings**.
 
 ## Deploying
 
-**GitHub Pages:**
+**GitHub Pages** (local-only demo, no accounts or sync):
 ```sh
-npm run deploy
+pnpm run deploy
 ```
 Update the `base` field in `vite.config.js` to match your repository name before deploying.
 
-**Vercel / Netlify:**
-```sh
-npm run build:vercel
-```
-Point your host's publish directory to `dist/`.
+**Vercel** (full app — optional auth, cloud sync, and billing via serverless `/api` functions):
+
+Pushing a branch creates a Preview deployment; merging to `main` deploys Production.
+Cloud features activate only when environment variables are configured — see
+[docs/environments.md](./docs/environments.md) for the complete Clerk / Stripe / Neon
+setup, per-environment variables, and self-hosting options (including running
+your own sync backend with the paywall disabled via `REQUIRE_SUBSCRIPTION=false`).
