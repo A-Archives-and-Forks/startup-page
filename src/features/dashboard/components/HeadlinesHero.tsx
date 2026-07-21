@@ -2,34 +2,75 @@ import React from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2";
 
 import { readSettings } from "@/lib/settings";
+import { fetchRssFeed } from "@/lib/rss";
 
-const FALLBACK_IMAGE =
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Google.png/640px-Google.png";
-
-function getValidImage(post) {
-  const previewSource = post.preview?.images?.[0]?.source?.url;
-  if (previewSource) {
-    return previewSource.replaceAll("&amp;", "&");
-  }
-
-  if (typeof post.thumbnail === "string" && post.thumbnail.startsWith("http")) {
-    return post.thumbnail;
-  }
-
-  return FALLBACK_IMAGE;
+// Reddit blocks anonymous browser requests to its *.json endpoints (HTTP 403 with
+// no CORS headers), so the headlines are loaded from the subreddit RSS feed, parsed
+// by the same client-side helper the RSS feature panel uses.
+function decodeEntities(value) {
+  return typeof value === "string" ? value.replaceAll("&amp;", "&") : value;
 }
 
-function normalizeArticle(post) {
+function matchFromContent(content, pattern) {
+  if (typeof content !== "string") {
+    return null;
+  }
+  const match = content.match(pattern);
+  return match ? match[1] : null;
+}
+
+function getArticleUrl(item) {
+  // Reddit's RSS embeds the destination article as the "[link]" anchor; fall back
+  // to the discussion permalink when a post links to Reddit itself.
+  const external = matchFromContent(item.content, /<a[^>]+href="([^"]+)"[^>]*>\s*\[link\]/i);
+  return external || item.link;
+}
+
+function getArticleImage(item) {
+  const thumbnail = item.thumbnail || item.enclosure?.thumbnail;
+  if (typeof thumbnail === "string" && thumbnail.startsWith("http")) {
+    return decodeEntities(thumbnail);
+  }
+
+  const embedded = matchFromContent(item.content, /<img[^>]+src="([^"]+)"/i);
+  if (embedded && embedded.startsWith("http")) {
+    return decodeEntities(embedded);
+  }
+
+  return null;
+}
+
+function getSourceLabel(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch (_error) {
+    return "reddit.com";
+  }
+}
+
+function formatPublishedLabel(pubDate) {
+  if (!pubDate) {
+    return "";
+  }
+
+  // fetchRssFeed normalizes publication dates to ISO-8601 strings.
+  const parsed = new Date(pubDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function normalizeArticle(item) {
+  const url = getArticleUrl(item);
   return {
-    id: post.id,
-    title: post.title,
-    url: post.url_overridden_by_dest || post.url || `https://www.reddit.com${post.permalink}`,
-    image: getValidImage(post),
-    source: post.domain || "reddit.com",
-    publishedLabel: new Date((post.created_utc || Date.now() / 1000) * 1000).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
+    id: item.guid || url,
+    title: item.title,
+    url,
+    image: getArticleImage(item),
+    source: getSourceLabel(url),
+    publishedLabel: formatPublishedLabel(item.pubDate),
   };
 }
 
@@ -49,13 +90,12 @@ export default function HeadlinesHero() {
       setStatus("loading");
 
       try {
-        const response = await fetch(`https://www.reddit.com/r/${subreddit}.json?raw_json=1&limit=25`);
-        const data = await response.json();
-        const nextArticles = (data?.data?.children || [])
-          .map((entry) => entry.data)
-          .filter((post) => !post.stickied)
-          .filter((post) => post.title)
-          .map(normalizeArticle);
+        const feedUrl = `https://www.reddit.com/r/${subreddit}/.rss`;
+        const { items } = await fetchRssFeed(feedUrl);
+
+        const nextArticles = items
+          .map(normalizeArticle)
+          .filter((article) => article.title && article.image);
 
         if (!cancelled) {
           setArticles(nextArticles);

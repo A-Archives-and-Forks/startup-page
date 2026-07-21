@@ -9,6 +9,7 @@
     "themePalette": "zen",
     "gridDensity": "comfortable",
     "cardStyle": "rounded",
+    "clockFormat": "12h",
     "tileSize": 9,
     "bookmarkPillSize": 3.25,
     "showDecorativeMedia": true,
@@ -191,11 +192,19 @@
     "bookmarkBoxCategories": [0, 1, 2, 3, 4]
   },
   "featurePanel": {
-    "mode": "headlines",
-    "enabledModes": ["headlines", "forecast", "airQuality", "timer", "windy", "wikipedia", "rss", "github", "spotify", "unsplash"],
+    "mode": "windy",
+    "enabledModes": ["windy", "headlines", "forecast", "airQuality", "timer", "wikipedia", "rss", "github", "spotify", "unsplash"],
     "githubUsername": null,
     "rssFeedUrl": null,
     "spotifyClientId": null
+  },
+  "search": {
+    "engines": [
+      { "id": "google", "name": "Google", "url": "https://www.google.com/search?q=", "icon": "google" },
+      { "id": "duckduckgo", "name": "DuckDuckGo", "url": "https://duckduckgo.com/?q=", "icon": "duckduckgo" },
+      { "id": "youtube", "name": "YouTube", "url": "https://www.youtube.com/results?search_query=", "icon": "youtube" },
+      { "id": "wikipedia", "name": "Wikipedia", "url": "https://en.wikipedia.org/w/index.php?search=", "icon": "wikipedia" }
+    ]
   },
   "decorativeVideo": {
     "urls": ["https://media.istockphoto.com/id/1255754954/video/school-of-fish-sharks-swim-in-a-circle.mp4?s=mp4-640x640-is&k=20&c=YqOEIjdlfaofiSnAwTszq021DXQvTb2p-hNia4dZtxA="],

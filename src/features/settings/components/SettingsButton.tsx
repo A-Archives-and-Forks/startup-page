@@ -1,6 +1,11 @@
 import React, { useContext, useState } from "react";
 import { HiOutlineCog } from "react-icons/hi2";
 import { ALL_MODES as ALL_FEATURE_MODES } from "@/features/dashboard/components/FeaturePanel";
+import {
+  DEFAULT_SEARCH_ENGINES,
+  SEARCH_ICON_OPTIONS,
+  getSearchEngineIcon,
+} from "@/features/dashboard/searchEngines";
 
 import { ThemeContext } from "@/components/layout/ThemeContext";
 import { Button } from "@/components/ui/button";
@@ -422,6 +427,51 @@ function SettingsButton() {
     });
   };
 
+  const getSearchEnginesForEdit = (prevSettings) =>
+    Array.isArray(prevSettings.search?.engines) && prevSettings.search.engines.length
+      ? prevSettings.search.engines
+      : DEFAULT_SEARCH_ENGINES;
+
+  const handleSearchEngineChange = (index, key, value) => {
+    updateSettings((prevSettings) => {
+      const engines = getSearchEnginesForEdit(prevSettings).map((engine, currentIndex) =>
+        currentIndex === index ? { ...engine, [key]: value } : engine
+      );
+      return { ...prevSettings, search: { ...prevSettings.search, engines } };
+    });
+  };
+
+  const handleAddSearchEngine = () => {
+    updateSettings((prevSettings) => {
+      const engines = [
+        ...getSearchEnginesForEdit(prevSettings),
+        { id: `engine-${Date.now()}`, name: "", url: "", icon: "search" },
+      ];
+      return { ...prevSettings, search: { ...prevSettings.search, engines } };
+    });
+  };
+
+  const handleRemoveSearchEngine = (index) => {
+    updateSettings((prevSettings) => {
+      const engines = getSearchEnginesForEdit(prevSettings).filter(
+        (_engine, currentIndex) => currentIndex !== index
+      );
+      return { ...prevSettings, search: { ...prevSettings.search, engines } };
+    });
+  };
+
+  const handleMoveSearchEngine = (index, direction) => {
+    updateSettings((prevSettings) => {
+      const engines = [...getSearchEnginesForEdit(prevSettings)];
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= engines.length) {
+        return prevSettings;
+      }
+      [engines[index], engines[nextIndex]] = [engines[nextIndex], engines[index]];
+      return { ...prevSettings, search: { ...prevSettings.search, engines } };
+    });
+  };
+
   const handleBookmarkTitleChange = (index, value) => {
     updateSettings((prevSettings) => {
       const bookmark = [...prevSettings.bookmark];
@@ -577,12 +627,18 @@ function SettingsButton() {
   const selectedThemePalette = settingsState.ui?.themePalette || themePalette;
   const selectedGridDensity = settingsState.ui?.gridDensity || "comfortable";
   const selectedCardStyle = settingsState.ui?.cardStyle || "rounded";
+  const selectedClockFormat = settingsState.ui?.clockFormat || "12h";
   const imageEffects = settingsState.ui?.imageEffects || IMAGE_FILTER_DEFAULTS;
 
   return (
     <Dialog open={open} onOpenChange={closeModal}>
       <DialogTrigger asChild>
-        <button className="text-current text-4xl cursor-pointer" onClick={openModal}>
+        <button
+          className="text-current text-4xl cursor-pointer"
+          onClick={openModal}
+          aria-label="Open workspace settings"
+          title="Workspace settings"
+        >
           <HiOutlineCog />
         </button>
       </DialogTrigger>
@@ -766,6 +822,23 @@ function SettingsButton() {
                           title={value.charAt(0).toUpperCase() + value.slice(1)}
                           description={value === "soft" ? "Large rounded corners." : value === "sharp" ? "Crisper corners." : "Balanced default radius."}
                           onClick={() => handleUiChange("cardStyle", value)}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Clock Format</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                      {["12h", "24h"].map((value) => (
+                        <ChoiceButton
+                          key={value}
+                          selected={selectedClockFormat === value}
+                          title={value === "12h" ? "12-hour" : "24-hour"}
+                          description={value === "12h" ? "Hours 1–12 (e.g. 9:45)." : "Hours 0–23 (e.g. 21:45)."}
+                          onClick={() => handleUiChange("clockFormat", value)}
                         />
                       ))}
                     </CardContent>
@@ -1120,6 +1193,97 @@ function SettingsButton() {
                         />
                       </SettingField>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Search Engines</CardTitle>
+                    <CardDescription>
+                      Customize the buttons in the search box. Each engine needs a name, an icon, and a search URL that the typed query is appended to (e.g. <code>https://duckduckgo.com/?q=</code>). The first engine is selected by default.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {(settingsState.search?.engines?.length
+                      ? settingsState.search.engines
+                      : DEFAULT_SEARCH_ENGINES
+                    ).map((engine, index, engines) => {
+                      const EngineIcon = getSearchEngineIcon(engine.icon);
+                      return (
+                        <div key={engine.id ?? index} className="rounded-xl border border-border bg-muted/25 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="flex size-7 items-center justify-center rounded-full border border-border/60 bg-card">
+                                <EngineIcon className="size-4" aria-hidden="true" />
+                              </span>
+                              <p className="text-sm font-medium">{engine.name || "Untitled engine"}</p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMoveSearchEngine(index, -1)}
+                                disabled={index === 0}
+                                aria-label="Move engine up"
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMoveSearchEngine(index, 1)}
+                                disabled={index === engines.length - 1}
+                                aria-label="Move engine down"
+                              >
+                                ↓
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRemoveSearchEngine(index)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                            <SettingField label="Name">
+                              <Input
+                                value={engine.name}
+                                placeholder="e.g. YouTube"
+                                onChange={(event) => handleSearchEngineChange(index, "name", event.target.value)}
+                              />
+                            </SettingField>
+                            <SettingField label="Search URL">
+                              <Input
+                                value={engine.url}
+                                placeholder="https://example.com/search?q="
+                                onChange={(event) => handleSearchEngineChange(index, "url", event.target.value)}
+                              />
+                            </SettingField>
+                            <SettingField label="Icon">
+                              <select
+                                className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                                value={engine.icon || "search"}
+                                onChange={(event) => handleSearchEngineChange(index, "icon", event.target.value)}
+                              >
+                                {SEARCH_ICON_OPTIONS.map((option) => (
+                                  <option key={option.key} value={option.key}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </SettingField>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button type="button" variant="outline" onClick={handleAddSearchEngine}>
+                      Add engine
+                    </Button>
                   </CardContent>
                 </Card>
 

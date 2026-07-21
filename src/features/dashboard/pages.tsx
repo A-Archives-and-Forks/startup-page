@@ -1,18 +1,16 @@
 /*eslint-disable*/
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { HiOutlineArrowsPointingOut, HiOutlineEyeSlash } from "react-icons/hi2";
 
 import { useSettingsStore } from "@/features/settings/stores";
+import { useLayoutEditStore } from "@/features/dashboard/stores/layoutEditStore";
+import { Button } from "@/components/ui/button";
 import {
-  DASHBOARD_LARGE_TILE,
-  DASHBOARD_TALL_TILE,
-  DASHBOARD_TILE,
-  DASHBOARD_WIDE_TILE,
-  GRID_FEATURE,
-  GRID_SINGLE,
-  GRID_SOLAR,
-  GRID_TALL,
-  GRID_WIDE,
+  DEFAULT_TILE_ORDER,
+  DEFAULT_TILE_SIZES,
+  TILE_SIZE_OPTIONS,
+  TILE_SIZE_SPANS,
 } from "@/lib/dashboard-dimensions";
 
 import Clock from "@/features/dashboard/components/Clock";
@@ -81,6 +79,14 @@ function DecorativeVideoTile({
 export default function Index() {
   const navigate = useNavigate();
   const settings = useSettingsStore((state) => state.settings);
+  const persistSettings = useSettingsStore((state) => state.persistSettings);
+  const editing = useLayoutEditStore((state) => state.editing);
+  const setEditing = useLayoutEditStore((state) => state.setEditing);
+  // Ref drives the reorder logic (immune to render timing across the multi-tick
+  // drag sequence); state is only for the "being dragged" visual treatment.
+  const dragIdRef = React.useRef<string | null>(null);
+  const [dragId, setDragId] = React.useState<string | null>(null);
+
   const hiddenBoxes = settings.layout?.hiddenBoxes || {};
   const showBox = (id: string) => !hiddenBoxes[id];
   const ui = settings.ui || {};
@@ -190,164 +196,281 @@ export default function Index() {
     );
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4 pb-10 pt-28">
-      <style>{gridCss}</style>
-      <div
-        className={`dashboard-grid grid w-fit ${gapClass} grid-flow-row-dense content-center justify-center`}
-      >
-        {/* row 1 */}
-        {showDecorativeMedia && showBox("videoTall") && (
-          <div className={panel(`overflow-hidden ${GRID_TALL} ${DASHBOARD_TALL_TILE} ${surface}`)}>
-            {renderDecorativeVideo("tall", `sticky h-full w-full rounded-xl overflow-hidden`)}
+  // Each tile renders its own surface + content and fills its grid cell. The
+  // wrapper in the render loop owns positioning (span, drag/drop, edit chrome).
+  const renderTileBody = (id: string): React.ReactNode => {
+    switch (id) {
+      case "videoTall":
+        return (
+          <div className={panel(`h-full w-full overflow-hidden ${surface}`)}>
+            {renderDecorativeVideo("tall", "sticky h-full w-full rounded-xl overflow-hidden")}
           </div>
-        )}
-        {showDecorativeMedia && showBox("videoSmall") && (
-          <div className={panel(`overflow-hidden ${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}>
-            {renderDecorativeVideo("small", `sticky h-full w-full rounded-xl overflow-hidden`)}
+        );
+      case "videoSmall":
+        return (
+          <div className={panel(`h-full w-full overflow-hidden ${surface}`)}>
+            {renderDecorativeVideo("small", "sticky h-full w-full rounded-xl overflow-hidden")}
           </div>
-        )}
-        {showBox("search") && (
-          <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} ${strongSurface}`)}>
+        );
+      case "search":
+        return (
+          <div className={panel(`h-full w-full ${strongSurface}`)}>
             <SearchBox />
           </div>
-        )}
-        {showBox("bookmark1") && (
-          <Bookmark
-            title={getBookmarkGroupForBox(0).title}
-            content={getBookmarkGroupForBox(0).content}
-            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[0] ?? 0)}
-            cardClass={panel(
-              `h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`,
-            )}
-          />
-        )}
-        {showBox("weather") && (
-          <div className={panel(`${GRID_WIDE} ${DASHBOARD_WIDE_TILE} overflow-hidden`)}>
+        );
+      case "weather":
+        return (
+          <div className={panel("h-full w-full overflow-hidden")}>
             <React.Suspense fallback={null}>
               <WeatherBox />
             </React.Suspense>
           </div>
-        )}
-
-        {/* row 2 */}
-        {showBox("unsplash2") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}>
-            <Unsplash
-              search={settings.unsplash.unsplashBox2}
-              cardClass={panel(
-                "relative overflow-hidden h-full w-full bg-center bg-no-repeat",
-              )}
-            />
-          </div>
-        )}
-        {showBox("bookmark2") && (
-          <Bookmark
-            title={getBookmarkGroupForBox(1).title}
-            content={getBookmarkGroupForBox(1).content}
-            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[1] ?? 1)}
-            cardClass={panel(
-              `h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`,
-            )}
-          />
-        )}
-        {showBox("featurePanel") && (
-          <div
-            className={panel(
-              `grid-feature-responsive h-full w-full overflow-visible ${GRID_FEATURE} ${DASHBOARD_LARGE_TILE} ${surface}`,
-            )}
-          >
+        );
+      case "featurePanel":
+        return (
+          <div className={panel(`h-full w-full overflow-visible ${surface}`)}>
             <FeaturePanel />
           </div>
-        )}
-        {showBox("unsplash3") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}>
-            <Unsplash
-              search={settings.unsplash.unsplashBox3}
-              cardClass={panel(
-                "relative overflow-hidden h-full w-full bg-center bg-no-repeat",
-              )}
-            />
-          </div>
-        )}
-
-        {/* row 3 */}
-        {showBox("bookmark3") && (
-          <Bookmark
-            title={getBookmarkGroupForBox(2).title}
-            content={getBookmarkGroupForBox(2).content}
-            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[2] ?? 2)}
-            cardClass={panel(
-              `h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`,
-            )}
-          />
-        )}
-        {showBox("solarGraph") && (
-          <div
-            className={panel(
-              `h-full w-full bg-black ${GRID_SOLAR} ${DASHBOARD_LARGE_TILE} border border-border/60 shadow-lg`,
-            )}
-          >
+        );
+      case "solarGraph":
+        return (
+          <div className={panel("h-full w-full bg-black border border-border/60 shadow-lg")}>
             <React.Suspense fallback={null}>
               <SolarGraph />
             </React.Suspense>
           </div>
-        )}
-
-        {/* row 4 */}
-        {showBox("bookmark4") && (
-          <Bookmark
-            title={getBookmarkGroupForBox(3).title}
-            content={getBookmarkGroupForBox(3).content}
-            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[3] ?? 3)}
-            cardClass={panel(
-              `h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`,
-            )}
-          />
-        )}
-        {showBox("bookmark5") && (
-          <Bookmark
-            title={getBookmarkGroupForBox(4).title}
-            content={getBookmarkGroupForBox(4).content}
-            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[4] ?? 4)}
-            cardClass={panel(
-              `h-full w-full ${GRID_SINGLE} ${DASHBOARD_TILE} overflow-y-auto ${strongSurface}`,
-            )}
-          />
-        )}
-        {showBox("unsplash4") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}>
-            <Unsplash
-              search={settings.unsplash.unsplashBox4}
-              cardClass={panel(
-                "relative overflow-hidden h-full w-full bg-center bg-no-repeat",
-              )}
-            />
+        );
+      case "vaultPreview":
+        return (
+          <div className={panel(`h-full w-full overflow-hidden ${strongSurface}`)}>
+            <ResourceVaultPreview items={settings.readItems} onOpen={() => navigate("/resources")} />
           </div>
-        )}
-        {showBox("unsplash5") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${surface}`)}>
-            <Unsplash
-              search={settings.unsplash.unsplashBox5}
-              cardClass={panel(
-                "relative overflow-hidden h-full w-full bg-center bg-no-repeat",
-              )}
-            />
-          </div>
-        )}
-        {showBox("vaultPreview") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${strongSurface} overflow-hidden`)}>
-            <ResourceVaultPreview
-              items={settings.readItems}
-              onOpen={() => navigate("/resources")}
-            />
-          </div>
-        )}
-        {showBox("clock") && (
-          <div className={panel(`${GRID_SINGLE} ${DASHBOARD_TILE} ${mutedSurface}`)}>
+        );
+      case "clock":
+        return (
+          <div className={panel(`h-full w-full ${mutedSurface}`)}>
             <Clock />
           </div>
-        )}
+        );
+      case "bookmark1":
+      case "bookmark2":
+      case "bookmark3":
+      case "bookmark4":
+      case "bookmark5": {
+        const boxIndex = Number(id.replace("bookmark", "")) - 1;
+        const group = getBookmarkGroupForBox(boxIndex);
+        return (
+          <Bookmark
+            title={group.title}
+            content={group.content}
+            onTitleClick={() => openBookmarkView(bookmarkBoxCategories[boxIndex] ?? boxIndex)}
+            cardClass={panel(`h-full w-full overflow-y-auto ${strongSurface}`)}
+          />
+        );
+      }
+      case "unsplash2":
+      case "unsplash3":
+      case "unsplash4":
+      case "unsplash5": {
+        const topicKey = `unsplashBox${id.replace("unsplash", "")}`;
+        return (
+          <div className={panel(`h-full w-full ${surface}`)}>
+            <Unsplash
+              search={settings.unsplash?.[topicKey]}
+              cardClass={panel("relative overflow-hidden h-full w-full bg-center bg-no-repeat")}
+            />
+          </div>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const isTileVisible = (id: string) => {
+    if (!showBox(id)) return false;
+    if ((id === "videoTall" || id === "videoSmall") && !showDecorativeMedia) return false;
+    return true;
+  };
+
+  // Saved order, filtered to known tiles, with any newly-added tiles appended so
+  // nothing silently disappears when the tile set changes across versions.
+  const orderedTileIds = React.useMemo(() => {
+    const saved = Array.isArray(settings.layout?.order) ? settings.layout.order : [];
+    const known = saved.filter((id: string) => DEFAULT_TILE_ORDER.includes(id));
+    const missing = DEFAULT_TILE_ORDER.filter((id) => !known.includes(id));
+    return known.length ? [...known, ...missing] : DEFAULT_TILE_ORDER;
+  }, [settings.layout?.order]);
+
+  const tileSizes = { ...DEFAULT_TILE_SIZES, ...(settings.layout?.sizes || {}) };
+
+  const persistLayout = (
+    updater: (state: { order: string[]; sizes: Record<string, string> }) => {
+      order: string[];
+      sizes: Record<string, string>;
+    },
+  ) => {
+    void persistSettings((prev: any) => {
+      const prevLayout = prev.layout || {};
+      const savedOrder = Array.isArray(prevLayout.order) ? prevLayout.order : [];
+      const known = savedOrder.filter((id: string) => DEFAULT_TILE_ORDER.includes(id));
+      const missing = DEFAULT_TILE_ORDER.filter((id) => !known.includes(id));
+      const baseOrder = known.length ? [...known, ...missing] : [...DEFAULT_TILE_ORDER];
+      const baseSizes = { ...DEFAULT_TILE_SIZES, ...(prevLayout.sizes || {}) };
+      const next = updater({ order: baseOrder, sizes: baseSizes });
+      return { ...prev, layout: { ...prevLayout, order: next.order, sizes: next.sizes } };
+    });
+  };
+
+  const moveTile = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    persistLayout(({ order, sizes }) => {
+      const next = order.filter((id) => id !== fromId);
+      const targetIndex = next.indexOf(toId);
+      next.splice(targetIndex < 0 ? next.length : targetIndex, 0, fromId);
+      return { order: next, sizes };
+    });
+  };
+
+  const setTileSize = (id: string, size: string) => {
+    persistLayout(({ order, sizes }) => ({ order, sizes: { ...sizes, [id]: size } }));
+  };
+
+  const hideTile = (id: string) => {
+    void persistSettings((prev: any) => ({
+      ...prev,
+      layout: {
+        ...prev.layout,
+        hiddenBoxes: { ...(prev.layout?.hiddenBoxes || {}), [id]: true },
+      },
+    }));
+  };
+
+  const resetLayout = () => {
+    persistLayout(() => ({
+      order: [...DEFAULT_TILE_ORDER],
+      sizes: { ...DEFAULT_TILE_SIZES },
+    }));
+  };
+
+  const handleDragStart = (event: React.DragEvent, id: string) => {
+    dragIdRef.current = id;
+    setDragId(id);
+    event.dataTransfer.effectAllowed = "move";
+    try {
+      event.dataTransfer.setData("text/plain", id);
+    } catch (_error) {
+      /* some browsers restrict setData during dragstart */
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!dragIdRef.current) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (event: React.DragEvent, id: string) => {
+    event.preventDefault();
+    const fromId = dragIdRef.current;
+    if (fromId) moveTile(fromId, id);
+    dragIdRef.current = null;
+    setDragId(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIdRef.current = null;
+    setDragId(null);
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4 pb-10 pt-28">
+      <style>{gridCss}</style>
+
+      {editing && (
+        <div className="fixed inset-x-0 top-16 z-40 flex justify-center px-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl border border-border/60 bg-background/95 px-4 py-2 text-xs shadow-lg backdrop-blur">
+            <span className="font-medium text-foreground">Editing layout</span>
+            <span className="hidden text-muted-foreground sm:inline">
+              Drag the handle to move · use the size menu to resize · eye icon hides a tile
+            </span>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={resetLayout}>
+                Reset layout
+              </Button>
+              <Button type="button" size="sm" onClick={() => setEditing(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`dashboard-grid grid w-fit ${gapClass} grid-flow-row-dense content-center justify-center`}
+      >
+        {orderedTileIds.map((id) => {
+          if (!isTileVisible(id)) return null;
+          const size = tileSizes[id] || DEFAULT_TILE_SIZES[id] || "small";
+          const spanClass = TILE_SIZE_SPANS[size] || TILE_SIZE_SPANS.small;
+          const isDragging = dragId === id;
+
+          return (
+            <div
+              key={id}
+              data-tile-id={id}
+              className={`${spanClass} min-h-0 min-w-0 relative ${
+                editing
+                  ? `${radiusClass} ring-2 ${isDragging ? "ring-primary opacity-60" : "ring-primary/40"}`
+                  : ""
+              }`}
+              onDragOver={editing ? handleDragOver : undefined}
+              onDrop={editing ? (event) => handleDrop(event, id) : undefined}
+            >
+              <div className={editing ? "pointer-events-none h-full w-full select-none" : "h-full w-full"}>
+                {renderTileBody(id)}
+              </div>
+
+              {editing && (
+                <div className="pointer-events-auto absolute left-1 top-1 z-30 flex items-center gap-1 rounded-lg border border-border/60 bg-background/95 px-1 py-1 shadow-lg backdrop-blur-sm">
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(event) => handleDragStart(event, id)}
+                    onDragEnd={handleDragEnd}
+                    className="flex size-6 cursor-grab items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-accent-foreground active:cursor-grabbing"
+                    aria-label="Drag to move tile"
+                    title="Drag to move"
+                  >
+                    <HiOutlineArrowsPointingOut className="size-3.5" />
+                  </button>
+                  <select
+                    value={size}
+                    onChange={(event) => setTileSize(id, event.target.value)}
+                    className="h-6 rounded-md border border-input bg-card px-1 text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    aria-label="Tile size"
+                    title="Resize tile"
+                  >
+                    {TILE_SIZE_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => hideTile(id)}
+                    className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-destructive/15 hover:text-destructive"
+                    aria-label="Hide tile"
+                    title="Hide tile"
+                  >
+                    <HiOutlineEyeSlash className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 import React from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { KBarProvider, useRegisterActions } from "kbar";
-import { HiArchiveBox, HiBookmark, HiHome } from "react-icons/hi2";
+import { HiArchiveBox, HiBookmark, HiHome, HiOutlineSquares2X2 } from "react-icons/hi2";
 
 import { isBuiltInPalette } from "@/lib/theme-palettes";
 import { useSettingsStore } from "@/features/settings/stores";
+import { useLayoutEditStore } from "@/features/dashboard/stores/layoutEditStore";
 import ThemeProvider, { ThemeContext, type ThemeMode } from "@/components/layout/ThemeContext";
 import Toggle from "@/components/layout/ThemeToggle";
 import SettingsButton from "@/features/settings/components/SettingsButton";
@@ -100,6 +101,18 @@ function AppLayoutInner() {
   const isResources = location.pathname === "/resources";
   const isBookmarks = location.pathname === "/bookmarks";
   const isDashboard = !isResources && !isBookmarks;
+
+  const editingLayout = useLayoutEditStore((state) => state.editing);
+  const toggleLayoutEditing = useLayoutEditStore((state) => state.toggleEditing);
+  const setLayoutEditing = useLayoutEditStore((state) => state.setEditing);
+
+  // Leaving the dashboard should exit edit mode so the toggle (which only shows
+  // on the dashboard) can't get stranded in the "on" state.
+  React.useEffect(() => {
+    if (!isDashboard && editingLayout) {
+      setLayoutEditing(false);
+    }
+  }, [isDashboard, editingLayout, setLayoutEditing]);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -209,6 +222,20 @@ function AppLayoutInner() {
         </button>
       </nav>
       <div className="fixed right-5 top-5 z-40 flex items-center gap-3 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]">
+        {isDashboard && (
+          <button
+            type="button"
+            onClick={toggleLayoutEditing}
+            className={`cursor-pointer text-4xl transition ${
+              editingLayout ? "text-primary" : "text-current opacity-90 hover:opacity-100"
+            }`}
+            title={editingLayout ? "Finish editing layout" : "Edit layout"}
+            aria-label="Edit dashboard layout"
+            aria-pressed={editingLayout}
+          >
+            <HiOutlineSquares2X2 />
+          </button>
+        )}
         <Toggle />
         {isClerkAvailable && <AccountButton />}
         <SettingsButton />

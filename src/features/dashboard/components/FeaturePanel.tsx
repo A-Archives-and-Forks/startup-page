@@ -15,10 +15,10 @@ import SpotifyPlayer from "./SpotifyPlayer";
 import { readSettings, writeSettings } from "@/lib/settings";
 
 export const ALL_MODES = [
+  { key: "windy", label: "Windy" },
   { key: "headlines", label: "Headlines" },
   { key: "airQuality", label: "Air Quality" },
   { key: "timer", label: "Timer" },
-  { key: "windy", label: "Windy" },
   { key: "wikipedia", label: "Wikipedia" },
   { key: "rss", label: "RSS" },
   { key: "github", label: "GitHub" },

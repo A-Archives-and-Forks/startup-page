@@ -2098,6 +2098,11 @@
   background-size: clamp(1rem, 10cqh, 1.75rem) clamp(1rem, 10cqh, 1.75rem);
 }
 
+.search-engine-icon {
+  width: clamp(1rem, 10cqh, 1.75rem);
+  height: clamp(1rem, 10cqh, 1.75rem);
+}
+
 .search-input {
   width: 100%;
   height: clamp(1.8rem, 16cqh, 2.25rem);
