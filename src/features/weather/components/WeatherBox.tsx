@@ -58,7 +58,7 @@ function WeatherBoxContent({
       data-condition={condition}
       style={{ backgroundImage: resolved.skyGradient }}
     >
-      <WeatherScene resolved={resolved} condition={condition} />
+      <WeatherScene resolved={resolved} condition={condition} locationLabel={location} />
       <div
         className="pointer-events-none absolute inset-0 z-[6]"
         style={{ backgroundColor: `rgba(0, 0, 0, ${resolved.skyDarkness})` }}

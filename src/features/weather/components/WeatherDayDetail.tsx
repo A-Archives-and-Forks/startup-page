@@ -1,6 +1,68 @@
-import React from "react";
+import React, { useState } from "react";
+import { WiDaySunny, WiCloud, WiRain, WiSprinkle, WiSnow, WiThunderstorm, WiFog } from "react-icons/wi";
 import VolumetricCloudscape from "@/features/media/components/VolumetricCloudscape";
-import type { ForecastDay, HourlyForecastPoint } from "@/features/weather/types/weather";
+import { useWeatherStore } from "@/features/weather/stores/weatherStore";
+import { getOpenWeatherCondition, getOpenWeatherCoverage, getOpenWeatherVisualProfile, getCloudFraction, resolveWeather } from "@/features/weather/utils";
+import { sunElevation } from "@/features/media/solarGraph/solarMath";
+import type { HourlyForecastPoint } from "@/features/weather/types/weather";
+
+// OpenWeather's free 3-hour forecast endpoint doesn't report UV at all, so
+// there's no real UV data to show. Estimate it instead from solar elevation
+// (reusing the same astronomy already used for the solar graph) attenuated
+// by cloud cover — clouds cut UV far less than visible light, unlike a
+// simple "cloudy = low" assumption would suggest. This is a decorative
+// estimate, not measured data.
+function estimateUVIndex(lat: number, lon: number, hour: HourlyForecastPoint): number {
+  const date = new Date(hour.time);
+  const localHour = date.getHours();
+  const doy = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+  const elevation = sunElevation(lat, lon, localHour, doy);
+  if (elevation <= 0) return 0;
+  const clearSkyUV = 12.5 * Math.pow(Math.sin((elevation * Math.PI) / 180), 1.25);
+  const cloudFraction = getCloudFraction(hour.weatherId ?? undefined, null);
+  return Math.max(0, Math.min(11, clearSkyUV * (1 - cloudFraction * 0.35)));
+}
+
+// Rough day/night curve from wall-clock hour alone — WeatherDayDetail only
+// gets sunrise/sunset for "Today" (see useWeatherData.ts), so precise
+// astronomical phase isn't available for other days. Good enough for a
+// decorative background: 0 = day, 1 = sunset, 2 = night.
+function estimatePhaseFromHour(hour: HourlyForecastPoint): number {
+  const clockHour = new Date(hour.time).getHours();
+  if (clockHour >= 7 && clockHour < 17) return 0;
+  if (clockHour >= 17 && clockHour < 19) return (clockHour - 17) / 2;
+  if (clockHour >= 19 && clockHour < 21) return 1 + (clockHour - 19) / 2;
+  if (clockHour >= 5 && clockHour < 7) return 2 - (clockHour - 5) / 2;
+  return 2;
+}
+
+// Flat, single-glyph icons — mirrors the plain look of Apple's stock Weather
+// widget rather than a rendered scene, kept intentionally simple.
+const CONDITION_ICONS = {
+  Clear: WiDaySunny,
+  Clouds: WiCloud,
+  Rain: WiRain,
+  Drizzle: WiSprinkle,
+  Snow: WiSnow,
+  Thunderstorm: WiThunderstorm,
+  Fog: WiFog,
+} as const;
+
+function ConditionIcon({ weatherId, className }: { weatherId: number | null; className?: string }): React.ReactElement {
+  const Icon = CONDITION_ICONS[getOpenWeatherCondition(weatherId ?? 800, "")] ?? WiCloud;
+  return <Icon className={className} aria-hidden="true" />;
+}
+
+// windDirection is meteorological (the direction wind is blowing FROM), so
+// the arrow — which should point where the wind is headed — is rotated 180°
+// past that. The glyph's rest state points up/north.
+function WindArrow({ fromDegrees, className }: { fromDegrees: number; className?: string }): React.ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" style={{ transform: `rotate(${(fromDegrees + 180) % 360}deg)` }}>
+      <path d="M12 2 L19 15 H14 V22 H10 V15 H5 Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 type MetricKey = "humidity" | "uv" | "wind" | "precipitation";
 
@@ -8,16 +70,8 @@ interface MetricDefinition {
   key: MetricKey;
   label: string;
   max: number;
-  color: string;
   getValue: (hour: HourlyForecastPoint) => number | null;
   format: (hour: HourlyForecastPoint) => string;
-  marker?: (hour: HourlyForecastPoint) => React.ReactNode;
-}
-
-function getWindCompass(degrees: number | null): string {
-  if (degrees === null) return "--";
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return directions[Math.round(degrees / 45) % directions.length];
 }
 
 function formatNumber(value: number | null, suffix = ""): string {
@@ -25,62 +79,10 @@ function formatNumber(value: number | null, suffix = ""): string {
   return `${Math.round(value)}${suffix}`;
 }
 
-function WindArrow({ degrees, color }: { degrees: number; color: string }): React.ReactElement {
-  return (
-    <svg
-      className="weather-wind-dir-arrow"
-      viewBox="0 0 10 14"
-      aria-hidden="true"
-      style={{ transform: `rotate(${degrees}deg)`, color }}
-    >
-      <path d="M5 0.5 L9.5 7 H6.3 V13.5 H3.7 V7 H0.5 Z" fill="currentColor" />
-    </svg>
-  );
-}
-
 function mixColor(from: [number, number, number], to: [number, number, number], amount: number): string {
   const value = Math.max(0, Math.min(amount, 1));
   const channels = from.map((channel, index) => Math.round(channel + (to[index] - channel) * value));
   return `rgb(${channels[0]} ${channels[1]} ${channels[2]})`;
-}
-
-function getUVColor(uv: number): string {
-  const n = Math.max(0, Math.min(uv / 11, 1));
-  if (n < 0.27) return mixColor([187, 247, 208], [253, 224, 71], n / 0.27);
-  if (n < 0.55) return mixColor([253, 224, 71], [251, 146, 60], (n - 0.27) / 0.28);
-  return mixColor([251, 146, 60], [244, 114, 182], (n - 0.55) / 0.45);
-}
-
-function UVGradientBar({ samples }: { samples: HourlyForecastPoint[] }): React.ReactElement {
-  if (!samples.length) return <div className="weather-uv-bar" />;
-
-  const gradientStops = samples.map((h, i) => {
-    const pct = samples.length > 1 ? (i / (samples.length - 1)) * 100 : 50;
-    return `${getUVColor(h.uvIndex ?? 0)} ${pct.toFixed(1)}%`;
-  }).join(", ");
-
-  return (
-    <div className="weather-uv-bar">
-      <div className="weather-uv-track" style={{ background: `linear-gradient(90deg, ${gradientStops})` }}>
-        {samples.map((h, i) => {
-          const pct = samples.length > 1 ? (i / (samples.length - 1)) * 100 : 50;
-          const transform =
-            i === 0               ? "translateX(0.45em) translateY(-50%)" :
-            i === samples.length - 1 ? "translateX(calc(-100% - 0.45em)) translateY(-50%)" :
-                                    "translate(-50%, -50%)";
-          return (
-            <span
-              key={h.time}
-              className="weather-uv-num"
-              style={{ left: `${pct}%`, transform }}
-            >
-              {h.uvIndex !== null ? Math.round(h.uvIndex) : "—"}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 function getScaleColor(metric: MetricKey, value: number | null, max: number): string {
@@ -98,175 +100,206 @@ function getScaleColor(metric: MetricKey, value: number | null, max: number): st
   return mixColor([191, 219, 254], [30, 64, 175], normalized);
 }
 
-function pickHourlySamples(hours: HourlyForecastPoint[]): HourlyForecastPoint[] {
-  return hours.filter((_, index) => index % 3 === 0).slice(0, 8);
+interface HourlySample extends HourlyForecastPoint {
+  isInterpolated: boolean;
 }
 
-function buildLinePoints(samples: HourlyForecastPoint[], metric: MetricDefinition): string {
-  if (samples.length <= 1) return "";
-  return samples.map((hour, index) => {
-    const value = metric.getValue(hour) ?? 0;
-    const x = (index / (samples.length - 1)) * 100;
-    const y = 100 - Math.max(0, Math.min(value / metric.max, 1)) * 100;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(" ");
+function lerp(a: number | null, b: number | null, t: number): number | null {
+  if (a === null && b === null) return null;
+  if (a === null) return b;
+  if (b === null) return a;
+  return a + (b - a) * t;
 }
 
-interface WeatherDayDetailProps {
-  day: ForecastDay;
-  unit: "imperial" | "metric";
-  mode?: "bars" | "lines";
-  onClose?: () => void;
+// The underlying source is OpenWeather's free 3-hour-step forecast (00, 03,
+// 06 ... 21 — 8 real points), not true hourly. Interpolate the gaps so the
+// UI can show all 24 hours; each synthesized hour is flagged
+// isInterpolated so it can be styled distinctly from real data.
+function buildHourlySeries(hours: HourlyForecastPoint[]): HourlySample[] {
+  if (hours.length === 0) return [];
+  const real = [...hours]
+    .map((point) => ({ point, clockHour: new Date(point.time).getHours() }))
+    .sort((a, b) => a.clockHour - b.clockHour);
+
+  const series: HourlySample[] = [];
+  for (let h = 0; h < 24; h++) {
+    let prev = real[0];
+    let next = real[real.length - 1];
+    for (const entry of real) {
+      if (entry.clockHour <= h) prev = entry;
+    }
+    for (let i = real.length - 1; i >= 0; i--) {
+      if (real[i].clockHour >= h) next = real[i];
+    }
+
+    const span = next.clockHour - prev.clockHour;
+    const t = span > 0 ? (h - prev.clockHour) / span : 0;
+    const isReal = prev.clockHour === h || next.clockHour === h;
+    const nearest = t < 0.5 ? prev.point : next.point;
+
+    const time = new Date(prev.point.time);
+    time.setHours(h, 0, 0, 0);
+    const iso = time.toISOString();
+
+    series.push({
+      time: iso,
+      hourLabel: time.toLocaleTimeString([], { hour: "numeric" }),
+      temperature: lerp(prev.point.temperature, next.point.temperature, t),
+      weatherId: nearest.weatherId,
+      humidity: lerp(prev.point.humidity, next.point.humidity, t),
+      uvIndex: lerp(prev.point.uvIndex, next.point.uvIndex, t),
+      windSpeed: lerp(prev.point.windSpeed, next.point.windSpeed, t),
+      windDirection: nearest.windDirection,
+      precipitationProbability: lerp(prev.point.precipitationProbability, next.point.precipitationProbability, t),
+      precipitation: lerp(prev.point.precipitation, next.point.precipitation, t),
+      isInterpolated: !isReal,
+    });
+  }
+  return series;
 }
 
-export default function WeatherDayDetail({
-  day,
-  unit,
-  mode = "bars",
-  onClose,
-}: WeatherDayDetailProps): React.ReactElement {
-  const samples = pickHourlySamples(day.hourly);
-  const precipitationUnit = unit === "imperial" ? "in" : "mm";
+// Always-available card (like Timer, Windy, etc.) rather than a modal you
+// open/close — defaults to today's forecast, and remembers whichever day
+// was last picked from the forecast bar until the user picks another.
+export default function WeatherDayDetail(): React.ReactElement {
+  const { data, clockTime, selectedDay, lat, lon } = useWeatherStore();
+  // Hooks must run unconditionally on every render, so these come before the
+  // early "no data yet" returns below rather than after.
+  const [activeMetricKey, setActiveMetricKey] = useState<MetricKey>("humidity");
+  const [selectedHourTime, setSelectedHourTime] = useState<string | null>(null);
+
+  if (!data) {
+    return (
+      <div className="weather-detail-panel">
+        <p className="weather-detail-empty">Loading weather…</p>
+      </div>
+    );
+  }
+
+  const resolved = resolveWeather(data, clockTime);
+  const unit: "imperial" | "metric" = resolved.unitLabel === "F" ? "imperial" : "metric";
+  const day = selectedDay?.day
+    ?? resolved.forecastDays.find((d) => d.dayName === "Today")
+    ?? resolved.forecastDays[0];
+
+  if (!day) {
+    return (
+      <div className="weather-detail-panel">
+        <p className="weather-detail-empty">Forecast unavailable.</p>
+      </div>
+    );
+  }
+
+  const samples = buildHourlySeries(day.hourly);
   const windUnit = unit === "imperial" ? "mph" : "km/h";
   const windMax = unit === "imperial" ? 35 : 55;
+  const uvLat = lat ?? 40;
+  const uvLon = lon ?? -95;
   const metrics: MetricDefinition[] = [
     {
       key: "humidity",
       label: "Humidity",
       max: 100,
-      color: "rgb(45 212 191)",
       getValue: (hour) => hour.humidity,
       format: (hour) => formatNumber(hour.humidity, "%"),
     },
     {
       key: "uv",
-      label: "UV index",
+      label: "UV Index (est.)",
       max: 11,
-      color: "rgb(244 114 182)",
-      getValue: (hour) => hour.uvIndex,
-      format: (hour) => hour.uvIndex === null ? "--" : hour.uvIndex.toFixed(1),
+      getValue: (hour) => estimateUVIndex(uvLat, uvLon, hour),
+      format: (hour) => `${Math.round(estimateUVIndex(uvLat, uvLon, hour))}`,
     },
     {
       key: "wind",
       label: "Wind",
       max: windMax,
-      color: "rgb(129 140 248)",
       getValue: (hour) => hour.windSpeed,
-      format: (hour) => `${formatNumber(hour.windSpeed)} ${windUnit} ${getWindCompass(hour.windDirection)}`,
-      marker: (hour) => hour.windDirection === null ? null : (
-        <span className="weather-detail-wind-arrow" style={{ transform: `rotate(${hour.windDirection}deg)` }}>↑</span>
-      ),
+      format: (hour) => formatNumber(hour.windSpeed, ` ${windUnit}`),
     },
     {
       key: "precipitation",
       label: "Precipitation",
       max: 100,
-      color: "rgb(37 99 235)",
       getValue: (hour) => hour.precipitationProbability,
-      format: (hour) => `${formatNumber(hour.precipitationProbability, "%")} ${hour.precipitation ? `${hour.precipitation}${precipitationUnit}` : ""}`,
+      format: (hour) => formatNumber(hour.precipitationProbability, "%"),
     },
   ];
+
+  const activeMetric = metrics.find((metric) => metric.key === activeMetricKey) ?? metrics[0];
+  const selectedHour = samples.find((hour) => hour.time === selectedHourTime) ?? null;
+  const sceneCoverage = selectedHour ? getOpenWeatherCoverage(selectedHour.weatherId ?? 800) : day.coverage;
+  const scenePhase    = selectedHour ? estimatePhaseFromHour(selectedHour) : "day";
+  const sceneCloudStyle = selectedHour
+    ? getOpenWeatherVisualProfile(selectedHour.weatherId ?? 800).cloudStyle
+    : day.cloudStyle;
 
   return (
     <div className="weather-detail-panel">
       <div className="weather-detail-shader" aria-hidden="true">
-        <VolumetricCloudscape coverage="partly" phase="night" cloudStyle="stratocumulus" />
+        <VolumetricCloudscape
+          coverage={sceneCoverage}
+          phase={scenePhase}
+          cloudStyle={sceneCloudStyle}
+        />
       </div>
       <div className="weather-detail-content">
-        <div className="weather-detail-header">
-          <div>
-            <h3>{day.dayName}</h3>
-            <p>{day.low}° low · {day.high}° high · {day.precip}% precip · {mode === "bars" ? "bars" : "trend"}</p>
-          </div>
-          {onClose && <button type="button" onClick={onClose} aria-label="Close hourly forecast">x</button>}
-        </div>
-        {day.hourly.length > 0 ? (
-          mode === "lines" ? (
-            <div className="weather-detail-line-panel">
-              <svg className="weather-detail-line-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Hourly weather metric trends">
-                <line x1="0" y1="25" x2="100" y2="25" />
-                <line x1="0" y1="50" x2="100" y2="50" />
-                <line x1="0" y1="75" x2="100" y2="75" />
-                {metrics.map((metric) => (
-                  <polyline
-                    key={metric.key}
-                    points={buildLinePoints(samples, metric)}
-                    style={{ stroke: metric.color }}
-                  />
-                ))}
-              </svg>
-              <div className="weather-detail-line-times">
-                {samples.map((hour) => <span key={hour.time}>{hour.hourLabel}</span>)}
-              </div>
-              <div className="weather-detail-legend">
-                {metrics.map((metric) => (
-                  <span key={metric.key}>
-                    <i style={{ background: metric.color }} />
-                    {metric.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="weather-detail-table">
-              <div className="weather-detail-time-axis">
-                <span />
-                {samples.map((hour) => <span key={hour.time}>{hour.hourLabel}</span>)}
-              </div>
-              {metrics.map((metric) => (
-                <section key={metric.key} className="weather-detail-row" data-metric={metric.key}>
-                  <h4>{metric.label}</h4>
-                  {metric.key === "uv" ? (
-                    <UVGradientBar samples={samples} />
-                  ) : (
-                    <div className="weather-detail-row-values">
-                      {samples.map((hour) => {
-                        const value = metric.getValue(hour);
-                        const height = `${Math.max(6, Math.min(((value ?? 0) / metric.max) * 100, 100))}%`;
-                        const color = getScaleColor(metric.key, value, metric.max);
+        {samples.length > 0 ? (
+          <>
+            <div className="weather-detail-hours">
+              {samples.map((hour) => {
+                const value = activeMetric.getValue(hour);
+                const height = `${Math.max(6, Math.min(((value ?? 0) / activeMetric.max) * 100, 100))}%`;
+                const color = getScaleColor(activeMetric.key, value, activeMetric.max);
+                const isSelected = hour.time === selectedHourTime;
 
-                        return (
-                          <div key={`${metric.key}-${hour.time}`} className="weather-detail-cell">
-                            <span className="weather-detail-bar" aria-hidden="true">
-                              <span
-                                className="weather-detail-bar-fill"
-                                style={{
-                                  height,
-                                  background: `linear-gradient(to top, color-mix(in oklab, ${color} 68%, black), ${color})`,
-                                  boxShadow: `0 0 8px color-mix(in oklab, ${color} 40%, transparent), 0 -1px 6px color-mix(in oklab, ${color} 28%, transparent)`,
-                                }}
-                              />
-                            </span>
-                            <div className="weather-detail-label">
-                              <span className="weather-detail-num">
-                                {metric.key === "humidity"      && formatNumber(hour.humidity)}
-                                {metric.key === "wind"          && formatNumber(hour.windSpeed)}
-                                {metric.key === "precipitation" && formatNumber(hour.precipitationProbability)}
-                              </span>
-                              <span className="weather-detail-subtext">
-                                {metric.key === "humidity" && "%"}
-                                {metric.key === "wind" && (
-                                  <>
-                                    {hour.windDirection !== null && <WindArrow degrees={hour.windDirection} color={color} />}
-                                    <span className="weather-detail-unit-text">{windUnit}</span>
-                                    {hour.windDirection !== null && <span className="weather-detail-compass">{getWindCompass(hour.windDirection)}</span>}
-                                  </>
-                                )}
-                                {metric.key === "precipitation" && "%"}
-                              </span>
-                              {metric.key === "precipitation" && hour.precipitation ? (
-                                <span className="weather-detail-subtext weather-detail-precip-amt">{hour.precipitation}{precipitationUnit}</span>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
+                return (
+                  <button
+                    key={hour.time}
+                    type="button"
+                    className="weather-detail-hour-col"
+                    data-active={isSelected}
+                    data-interpolated={hour.isInterpolated}
+                    aria-pressed={isSelected}
+                    title={hour.isInterpolated ? "Estimated between forecast points" : "Forecast data point"}
+                    onClick={() => setSelectedHourTime(isSelected ? null : hour.time)}
+                  >
+                    <span className="weather-detail-hour-label">{hour.hourLabel}</span>
+                    <ConditionIcon weatherId={hour.weatherId} className="weather-detail-hour-icon" />
+                    <span className="weather-detail-hour-temp">{formatNumber(hour.temperature, "°")}</span>
+                    {activeMetric.key === "wind" ? (
+                      <span className="weather-detail-hour-wind" aria-hidden="true">
+                        <WindArrow
+                          fromDegrees={hour.windDirection ?? 0}
+                          className="weather-detail-hour-wind-arrow"
+                        />
+                      </span>
+                    ) : (
+                      <span className="weather-detail-hour-bar" aria-hidden="true">
+                        <span className="weather-detail-hour-bar-fill" style={{ height, background: color }} />
+                      </span>
+                    )}
+                    <span className="weather-detail-hour-value">{activeMetric.format(hour)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="weather-detail-metric-tabs" role="tablist">
+              {metrics.map((metric) => (
+                <button
+                  key={metric.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={metric.key === activeMetricKey}
+                  className="weather-detail-metric-tab"
+                  data-active={metric.key === activeMetricKey}
+                  onClick={() => setActiveMetricKey(metric.key)}
+                >
+                  {metric.label}
+                </button>
               ))}
             </div>
-          )
+          </>
         ) : (
           <p className="weather-detail-empty">Hourly forecast unavailable for this day.</p>
         )}

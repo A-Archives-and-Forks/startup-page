@@ -21,6 +21,7 @@ uniform float u_hour;       // 0-24 wall-clock hour
 uniform float u_fog;        // 0-1 fog intensity
 uniform float u_wind;       // drift-speed multiplier ~0.4..2.6
 uniform float u_flash;      // 0-1 lightning illumination envelope
+uniform sampler2D u_textTex; // alpha mask of overlay text (e.g. location label), canvas-sized
 
 // ---- noise ----
 float hash(vec3 p) {
@@ -520,6 +521,12 @@ void main() {
   if (u_style > 4.5) color = mix(color, vec3(0.06,0.075,0.07), 0.22);
   color = mix(color, vec3(0.02,0.025,0.035), smoothstep(0.0, 0.22, 1.0 - uv.y) * 0.22);
 
+  // Knockout text: invert the final composited pixel wherever the overlay
+  // text mask is opaque, so labels read against whatever sky/cloud/sun/moon
+  // color is actually behind them instead of a fixed color.
+  float textA = texture2D(u_textTex, uv).a;
+  color = mix(color, vec3(1.0) - color, textA);
+
   gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -582,6 +589,15 @@ interface VolumetricCloudscapeProps {
   lightningIntensity?: number;
   /** Wall-clock hour 0-24 override (preview); defaults to the real clock */
   hour?: number;
+  /** Text knocked out (color-inverted) directly against the shader: location, temperature, condition */
+  locationLabel?: string;
+  temperatureLabel?: string;
+  conditionLabel?: string;
+}
+
+// Clamp a css-px value between a min and max, mirroring CSS clamp(min, preferred, max).
+function clampPx(min: number, preferred: number, max: number) {
+  return Math.min(max, Math.max(min, preferred));
 }
 
 export default function VolumetricCloudscape({
@@ -593,11 +609,14 @@ export default function VolumetricCloudscape({
   windSpeed = 0.2,
   lightningIntensity = 0,
   hour,
+  locationLabel = "",
+  temperatureLabel = "",
+  conditionLabel = "",
 }: VolumetricCloudscapeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [supported, setSupported] = useState(true);
-  const propsRef = useRef({ coverage, phase, cloudStyle, fogIntensity, density, windSpeed, lightningIntensity, hour });
-  propsRef.current = { coverage, phase, cloudStyle, fogIntensity, density, windSpeed, lightningIntensity, hour };
+  const propsRef = useRef({ coverage, phase, cloudStyle, fogIntensity, density, windSpeed, lightningIntensity, hour, locationLabel, temperatureLabel, conditionLabel });
+  propsRef.current = { coverage, phase, cloudStyle, fogIntensity, density, windSpeed, lightningIntensity, hour, locationLabel, temperatureLabel, conditionLabel };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -612,6 +631,109 @@ export default function VolumetricCloudscape({
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+    // Offscreen 2D canvas used purely to rasterize overlay text (e.g. the
+    // location label) into an alpha mask, uploaded as a texture and inverted
+    // per-pixel in the shader — see the u_textTex knockout at the end of main().
+    const textCanvas = document.createElement("canvas");
+    const textCtx = textCanvas.getContext("2d");
+    const textTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, textTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    let lastTextKey = "";
+
+    // Mirrors the .weather-current / .weather-location clamp() rules in
+    // index.css — .weather-widget sets container-type: size, so cqh/cqw there
+    // are fractions of this same canvas box, which is what cssW/cssH are here.
+    // Binary-search the longest prefix (+ ellipsis) of `text` that fits maxWidth,
+    // mirroring CSS `truncate`. ctx.font must already be set for this text run.
+    function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      let lo = 0, hi = text.length;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        const candidate = text.slice(0, mid) + "…";
+        if (ctx.measureText(candidate).width <= maxWidth) lo = mid; else hi = mid - 1;
+      }
+      return text.slice(0, lo) + "…";
+    }
+
+    // The main framebuffer is deliberately capped at 1x device-pixel-ratio
+    // (see resize()) to keep the cloud shader cheap — but that leaves text
+    // soft on Retina screens. Rasterize the text mask at real device
+    // resolution regardless, independent of the main canvas's backing-store
+    // size: it's just a texture sample in the shader, so oversampling it
+    // costs nothing per-frame, only a slightly bigger one-off upload whenever
+    // the text changes. Capped at 3x so huge external monitors don't blow up
+    // texture size.
+    const superSample = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+
+    function syncTextTexture() {
+      if (!textCtx) return;
+      const p = propsRef.current;
+      const location    = (p.locationLabel || "").toUpperCase().trim();
+      const temperature = (p.temperatureLabel || "").trim();
+      const conditionText = (p.conditionLabel || "").trim();
+      const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+      if (!cssW || !cssH) return;
+      const key = `${location}|${temperature}|${conditionText}|${cssW}|${cssH}`;
+      if (key === lastTextKey) return;
+      lastTextKey = key;
+
+      const tw = Math.max(1, Math.round(cssW * superSample));
+      const th = Math.max(1, Math.round(cssH * superSample));
+      textCanvas.width = tw;
+      textCanvas.height = th;
+      textCtx.clearRect(0, 0, tw, th);
+
+      const fontFamily = getComputedStyle(canvas).fontFamily || "sans-serif";
+      const paddingInline = clampPx(0.75 * 16, cssW * 0.07, 1.25 * 16) * superSample;
+      const paddingBlock  = clampPx(0.5  * 16, cssH * 0.06, 1    * 16) * superSample;
+
+      textCtx.textBaseline = "top";
+      textCtx.fillStyle = "#fff";
+
+      // Location — top-left, uppercase, letter-spaced. Mirrors .weather-location.
+      let locationBottom = paddingBlock;
+      if (location) {
+        const fontSize = clampPx(1.1 * 16, cssH * 0.098, 1.5 * 16) * superSample;
+        textCtx.textAlign = "left";
+        textCtx.font = `600 ${fontSize}px ${fontFamily}`;
+        if ("letterSpacing" in textCtx) (textCtx as any).letterSpacing = `${fontSize * 0.12}px`;
+        textCtx.fillText(location, paddingInline, paddingBlock);
+        locationBottom = paddingBlock + fontSize * 1.1;
+      }
+
+      // Temperature — below location, left-aligned, bold. Mirrors .weather-temp.
+      if (temperature) {
+        const fontSize  = clampPx(1.45 * 16, cssH * 0.18, 2.25 * 16) * superSample;
+        const marginTop = clampPx(0.0625 * 16, cssH * 0.01, 0.25 * 16) * superSample;
+        textCtx.textAlign = "left";
+        textCtx.font = `700 ${fontSize}px ${fontFamily}`;
+        if ("letterSpacing" in textCtx) (textCtx as any).letterSpacing = `${fontSize * -0.025}px`;
+        textCtx.fillText(temperature, paddingInline, locationBottom + marginTop);
+      }
+
+      // Condition — top-right, medium weight, truncated to the same max-width
+      // as .weather-desc so it never collides with the location/temp column.
+      if (conditionText) {
+        const fontSize = clampPx(1.1 * 16, cssH * 0.098, 1.5 * 16) * superSample;
+        const maxWidth = Math.min(cssW * 0.46, 9.5 * 16) * superSample;
+        textCtx.textAlign = "right";
+        textCtx.font = `500 ${fontSize}px ${fontFamily}`;
+        if ("letterSpacing" in textCtx) (textCtx as any).letterSpacing = "0px";
+        textCtx.fillText(fitText(textCtx, conditionText, maxWidth), tw - paddingInline, paddingBlock);
+      }
+
+      gl.bindTexture(gl.TEXTURE_2D, textTexture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    }
 
     const startedAt = performance.now();
 
@@ -628,6 +750,7 @@ export default function VolumetricCloudscape({
     let uFog: WebGLUniformLocation | null = null;
     let uWind: WebGLUniformLocation | null = null;
     let uFlash: WebGLUniformLocation | null = null;
+    let uTextTex: WebGLUniformLocation | null = null;
 
     function resize() {
       const dpr   = Math.min(window.devicePixelRatio || 1, 1.0);
@@ -670,6 +793,7 @@ export default function VolumetricCloudscape({
         uFog      = gl.getUniformLocation(program, "u_fog");
         uWind     = gl.getUniformLocation(program, "u_wind");
         uFlash    = gl.getUniformLocation(program, "u_flash");
+        uTextTex  = gl.getUniformLocation(program, "u_textTex");
         glReady = true;
       }
 
@@ -700,6 +824,12 @@ export default function VolumetricCloudscape({
       gl.uniform1f(uFog,      p.fogIntensity);
       gl.uniform1f(uWind,     0.5 + Math.max(0, Math.min(p.windSpeed ?? 0.2, 1)) * 2.1);
       gl.uniform1f(uFlash,    flash);
+
+      syncTextTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, textTexture);
+      gl.uniform1i(uTextTex, 0);
+
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
@@ -708,6 +838,7 @@ export default function VolumetricCloudscape({
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
       gl.deleteBuffer(buffer);
+      gl.deleteTexture(textTexture);
       gl.deleteProgram(program);
     };
   }, []);

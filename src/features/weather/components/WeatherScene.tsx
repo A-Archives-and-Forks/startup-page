@@ -12,9 +12,10 @@ import type { CloudStyle, PrecipitationStyle, ResolvedWeather } from "@/features
 interface WeatherSceneProps {
   resolved: ResolvedWeather;
   condition: string;
+  locationLabel?: string;
 }
 
-export function WeatherScene({ resolved, condition }: WeatherSceneProps): React.ReactElement {
+export function WeatherScene({ resolved, condition, locationLabel }: WeatherSceneProps): React.ReactElement {
   const { phase, dayTime, isHeavySnow, cloudFraction, cloudDensity, windEffective, clockHour } = resolved;
   const { visual } = resolved;
 
@@ -48,6 +49,9 @@ export function WeatherScene({ resolved, condition }: WeatherSceneProps): React.
           windSpeed={windEffective}
           lightningIntensity={showThunder ? visual.lightningIntensity : 0}
           hour={clockHour}
+          locationLabel={locationLabel}
+          temperatureLabel={`${resolved.temperature}°`}
+          conditionLabel={resolved.description}
         />
       </div>
 

@@ -23,7 +23,7 @@ interface OWCurrentResponse {
 interface OWForecastItem {
   dt_txt: string;
   main: { temp: number; temp_min: number; temp_max: number; humidity: number };
-  weather: Array<{ id: number; main: string }>;
+  weather: Array<{ id: number; main: string; description: string }>;
   wind: { speed: number; deg: number };
   pop: number;
   rain?: { "3h": number };
@@ -80,6 +80,8 @@ async function fetchWeather(
   const dailyPrecip:   number[] = [];
   const dailySunrise:  string[] = [];
   const dailySunset:   string[] = [];
+  const dailyWeatherId:   number[] = [];
+  const dailyDescription: string[] = [];
 
   days.forEach(([date, items], idx) => {
     dailyTime.push(date);
@@ -88,9 +90,22 @@ async function fetchWeather(
     dailyPrecip.push(Math.round(Math.max(...items.map((i) => i.pop)) * 100));
     dailySunrise.push(idx === 0 ? sunriseIso : "");
     dailySunset.push(idx === 0 ? sunsetIso  : "");
+
+    // Representative condition for the day: OpenWeather condition ids run
+    // most-severe-first (2xx thunderstorm ... 800 clear ... 80x clouds), so
+    // the lowest id among the day's 3h buckets is the "worst" — matches how
+    // most weather apps summarize a day (if a storm is possible, lead with it).
+    const worst = items.reduce((best, item) => {
+      const id = item.weather?.[0]?.id;
+      return id != null && id < (best?.weather?.[0]?.id ?? Infinity) ? item : best;
+    }, items[0]);
+    dailyWeatherId.push(worst?.weather?.[0]?.id ?? 800);
+    dailyDescription.push(formatWeatherDescription(worst?.weather?.[0]?.description ?? worst?.weather?.[0]?.main));
   });
 
   const hourlyTime:      string[] = [];
+  const hourlyTemp:      number[] = [];
+  const hourlyWeatherId: number[] = [];
   const hourlyHumidity:  number[] = [];
   const hourlyWind:      number[] = [];
   const hourlyWindDir:   number[] = [];
@@ -99,6 +114,8 @@ async function fetchWeather(
 
   for (const item of forecast.list) {
     hourlyTime.push(item.dt_txt.replace(" ", "T"));
+    hourlyTemp.push(item.main.temp);
+    hourlyWeatherId.push(item.weather?.[0]?.id ?? 800);
     hourlyHumidity.push(item.main.humidity);
     hourlyWind.push(item.wind?.speed ?? 0);
     hourlyWindDir.push(item.wind?.deg ?? 0);
@@ -126,9 +143,13 @@ async function fetchWeather(
       precipitation_probability_max: dailyPrecip,
       sunrise:                       dailySunrise,
       sunset:                        dailySunset,
+      weather_code:                  dailyWeatherId,
+      description:                   dailyDescription,
     },
     hourly: {
       time:                      hourlyTime,
+      temperature_2m:            hourlyTemp,
+      weather_code:              hourlyWeatherId,
       relative_humidity_2m:      hourlyHumidity,
       uv_index:                  [],
       wind_speed_10m:            hourlyWind,
@@ -148,7 +169,7 @@ async function fetchWeather(
 }
 
 export function useWeatherData(): void {
-  const { setData, setError, setLocation, setLastFetchedAt } = useWeatherStore();
+  const { setData, setError, setLocation, setCoords, setLastFetchedAt } = useWeatherStore();
 
   useEffect(() => {
     const { data, lastFetchedAt } = useWeatherStore.getState();
@@ -169,6 +190,7 @@ export function useWeatherData(): void {
         setData(weatherData);
         setLastFetchedAt(Date.now());
         setLocation(location);
+        setCoords(lat, lon);
       } catch (err) {
         setError((err as Error).message || "Could not load weather");
       }
@@ -191,5 +213,5 @@ export function useWeatherData(): void {
     } else {
       setError("Geolocation not supported");
     }
-  }, [setData, setError, setLocation, setLastFetchedAt]);
+  }, [setData, setError, setLocation, setCoords, setLastFetchedAt]);
 }
