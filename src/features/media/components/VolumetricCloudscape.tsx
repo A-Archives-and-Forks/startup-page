@@ -179,12 +179,19 @@ vec3 lightHue() {
   return mix(sun, vec3(0.72, 0.78, 0.95), smoothstep(1.25, 1.6, u_phase));
 }
 
+// Aspect-correct a uv-space offset so distances from it stay circular
+// regardless of the container's width/height ratio.
+vec2 aspectCorrect(vec2 v) {
+  v.x *= u_resolution.x / max(u_resolution.y, 1.0);
+  return v;
+}
+
 // ---- sun rendering ----
 vec3 drawSun(vec2 uv, vec3 col) {
   float vis = clamp(1.6 - u_phase, 0.0, 1.0);
   if (vis < 0.01 || u_style > 5.5) return col;
   vec2 sp = sunUV();
-  float d  = length(uv - sp);
+  float d  = length(aspectCorrect(uv - sp));
   vec3 hue = mix(vec3(1.0,0.97,0.86), vec3(1.0,0.58,0.22), smoothstep(0.0,1.0,u_phase));
   // Cloud alpha occludes the disc when composited over; only diffuse light needs
   // a coverage attenuation (scattered out before reaching the viewer).
@@ -212,7 +219,7 @@ vec3 drawSun(vec2 uv, vec3 col) {
   float gapRays = u_coverage * (1.0 - u_coverage) * 4.0; // peaks at 50% cover
   if (gapRays > 0.05 && u_phase < 1.3) {
     float rayDir = atan(uv.y - sp.y, uv.x - sp.x);
-    float rayDist = length(uv - sp);
+    float rayDist = length(aspectCorrect(uv - sp));
     float rays = noise(vec3(rayDir * 3.2, u_time * 0.045, 0.5));
     rays *= exp(-rayDist * 3.8) * gapRays * (1.3 - u_phase) * 0.13;
     col += hue * max(0.0, rays);
@@ -225,7 +232,7 @@ vec3 drawMoon(vec2 uv, vec3 col) {
   float vis = smoothstep(1.35, 2.0, u_phase);
   if (vis < 0.01) return col;
   vec2 mp = moonUV();
-  float d = length(uv - mp);
+  float d = length(aspectCorrect(uv - mp));
   float clr = 1.0 - clamp(u_coverage * (0.4 + u_density * 0.6), 0.0, 1.0) * 0.85;
 
   float glow = pow(max(0.0, 1.0 - d / 0.14), 2.6) * vis * clr;
