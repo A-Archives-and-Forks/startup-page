@@ -71,9 +71,14 @@ export interface WeatherData {
     precipitation_probability_max?: number[];
     sunrise?: string[];
     sunset?: string[];
+    /** OpenWeather condition id representing each day (worst-case among its 3h buckets) */
+    weather_code?: number[];
+    description?: string[];
   };
   hourly?: {
     time?: string[];
+    temperature_2m?: number[];
+    weather_code?: number[];
     relative_humidity_2m?: number[];
     uv_index?: number[];
     wind_speed_10m?: number[];
@@ -87,6 +92,8 @@ export interface WeatherData {
 export interface HourlyForecastPoint {
   time: string;
   hourLabel: string;
+  temperature: number | null;
+  weatherId: number | null;
   humidity: number | null;
   uvIndex: number | null;
   windSpeed: number | null;
@@ -101,6 +108,11 @@ export interface ForecastDay {
   high: number;
   low: number;
   precip: number;
+  weatherId: number;
+  condition: WeatherCondition;
+  description: string;
+  cloudStyle: CloudStyle;
+  coverage: CloudCoverage;
   hourly: HourlyForecastPoint[];
 }
 

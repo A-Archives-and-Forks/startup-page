@@ -79,8 +79,10 @@ function getPreviewTemperature(condition: WeatherCondition): number {
   return 55;
 }
 
-function makeHourlyPreview(): WeatherData["hourly"] {
+function makeHourlyPreview(baseTemp: number, weatherId: number): WeatherData["hourly"] {
   const time: string[] = [];
+  const temperature_2m: number[] = [];
+  const weather_code: number[] = [];
   const relative_humidity_2m: number[] = [];
   const uv_index: number[] = [];
   const wind_speed_10m: number[] = [];
@@ -97,6 +99,8 @@ function makeHourlyPreview(): WeatherData["hourly"] {
       const rainWave = Math.max(0, Math.sin((hour + day * 3) / 3));
 
       time.push(date.toISOString().slice(0, 16));
+      temperature_2m.push(Math.round(baseTemp - 8 + daylight * 10));
+      weather_code.push(weatherId);
       relative_humidity_2m.push(Math.round(48 + (1 - daylight) * 28 + rainWave * 16));
       uv_index.push(Number((daylight * (7 - day * 0.6)).toFixed(1)));
       wind_speed_10m.push(Math.round(6 + Math.sin(hour / 2 + day) * 3 + day * 1.5));
@@ -108,6 +112,8 @@ function makeHourlyPreview(): WeatherData["hourly"] {
 
   return {
     time,
+    temperature_2m,
+    weather_code,
     relative_humidity_2m,
     uv_index,
     wind_speed_10m,
@@ -138,8 +144,10 @@ function makePreviewWeather(conditionId: number, cloudCover: number, windMph: nu
       precipitation_probability_max: selected.main === "Clear" ? [5, 8, 4, 10] : [45, 60, 35, 50],
       sunrise: ["2026-06-15T06:00:00"],
       sunset: ["2026-06-15T20:00:00"],
+      weather_code: [selected.id, selected.id, selected.id, selected.id],
+      description: [selected.description, selected.description, selected.description, selected.description],
     },
-    hourly: makeHourlyPreview(),
+    hourly: makeHourlyPreview(temperature, selected.id),
     openWeather: {
       id: selected.id,
       weather: selected.main,

@@ -16,6 +16,7 @@ import { readSettings, writeSettings } from "@/lib/settings";
 
 export const ALL_MODES = [
   { key: "windy", label: "Windy" },
+  { key: "weather", label: "Weather" },
   { key: "headlines", label: "Headlines" },
   { key: "airQuality", label: "Air Quality" },
   { key: "timer", label: "Timer" },
@@ -28,6 +29,7 @@ export const ALL_MODES = [
 
 function FeatureContent({ mode, settings }) {
   if (mode === "windy") return <Windy cardClass="h-full w-full overflow-hidden rounded-[inherit]" />;
+  if (mode === "weather") return <WeatherDayDetail />;
   if (mode === "timer") return <TimerBox />;
   if (mode === "unsplash") return <Upsplash search={settings.unsplash.unsplashBox6} cardClass="relative overflow-hidden h-full w-full bg-center bg-no-repeat rounded-[inherit]" />;
   if (mode === "airQuality") return <AirQuality />;
@@ -40,10 +42,12 @@ function FeatureContent({ mode, settings }) {
 
 export default function FeaturePanel() {
   const settings = React.useMemo(() => readSettings(), []);
-  const { selectedDay, setSelectedDay } = useWeatherStore();
+  const weatherCardFocusToken = useWeatherStore((state) => state.weatherCardFocusToken);
   const enabledKeys = settings.featurePanel?.enabledModes;
+  // "weather" is always included even if a saved enabledModes list predates
+  // it (it's meant to always be reachable, not an optional extra like RSS).
   const FEATURE_MODES = enabledKeys?.length
-    ? ALL_MODES.filter((m) => enabledKeys.includes(m.key))
+    ? ALL_MODES.filter((m) => enabledKeys.includes(m.key) || m.key === "weather")
     : ALL_MODES;
 
   const storedMode = settings.featurePanel?.mode;
@@ -66,17 +70,27 @@ export default function FeaturePanel() {
     });
   };
 
+  // Clicking the weather widget elsewhere on the dashboard bumps this token —
+  // jump straight to the weather card, same as picking any other mode.
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (FEATURE_MODES.some((m) => m.key === "weather")) {
+      setActiveMode("weather");
+      const current = readSettings();
+      void writeSettings({
+        ...current,
+        featurePanel: { ...current.featurePanel, mode: "weather" },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weatherCardFocusToken]);
+
   return (
     <div className="relative h-full w-full overflow-visible rounded-[inherit]">
-      {selectedDay ? (
-        <WeatherDayDetail
-          day={selectedDay.day}
-          unit={selectedDay.unit}
-          mode={selectedDay.mode}
-          onClose={() => setSelectedDay(null)}
-        />
-      ) : (
-        <>
       {/* All panels are mounted at once so they pre-fetch. CSS hides inactive ones. */}
       <div className="h-full w-full overflow-hidden rounded-[inherit]">
         {FEATURE_MODES.map((mode) => (
@@ -123,8 +137,6 @@ export default function FeaturePanel() {
           />
         ))}
       </div>
-        </>
-      )}
     </div>
   );
 }

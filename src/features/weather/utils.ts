@@ -247,7 +247,7 @@ function getSkyGradient(condition: WeatherCondition, timePhase: number): string 
   return `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 52%, ${colors[2]} 100%)`;
 }
 
-function formatHourLabel(time: string): string {
+export function formatHourLabel(time: string): string {
   const date = new Date(time);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString([], { hour: "numeric" });
@@ -262,6 +262,8 @@ function getHourlyForecast(data: WeatherData, date: string): HourlyForecastPoint
     hours.push({
       time,
       hourLabel: formatHourLabel(time),
+      temperature: data.hourly?.temperature_2m?.[index] != null ? Math.round(data.hourly.temperature_2m[index]) : null,
+      weatherId: data.hourly?.weather_code?.[index] ?? null,
       humidity: data.hourly?.relative_humidity_2m?.[index] ?? null,
       uvIndex: data.hourly?.uv_index?.[index] ?? null,
       windSpeed: data.hourly?.wind_speed_10m?.[index] ?? null,
@@ -296,7 +298,7 @@ function makeVisualProfile(
   };
 }
 
-function getOpenWeatherVisualProfile(weatherId: number): WeatherVisualProfile {
+export function getOpenWeatherVisualProfile(weatherId: number): WeatherVisualProfile {
   const thunderstormBase = {
     cloudStyle: "cumulonimbus" as const,
     precipitationStyle: "rain" as const,
@@ -401,6 +403,17 @@ function getOpenMeteoVisualProfile(weatherCode: number): WeatherVisualProfile {
 
   return getOpenWeatherVisualProfile(openWeatherEquivalent);
 }
+
+/** Friendly fallback text for a day's description when the API didn't supply one. */
+export const CONDITION_LABELS: Record<WeatherCondition, string> = {
+  Clear: "Clear",
+  Clouds: "Cloudy",
+  Rain: "Rainy",
+  Drizzle: "Drizzle",
+  Snow: "Snowy",
+  Thunderstorm: "Stormy",
+  Fog: "Foggy",
+};
 
 export function getOpenWeatherCondition(weatherId: number, weatherMain: string): WeatherCondition {
   if (weatherId >= 200 && weatherId < 300) return "Thunderstorm";
@@ -598,19 +611,32 @@ export function resolveWeather(
   const description = mapped.description;
 
   // Forecast
-  const highs   = data.daily?.temperature_2m_max ?? [];
-  const lows    = data.daily?.temperature_2m_min ?? [];
-  const dates   = data.daily?.time ?? [];
-  const precips = data.daily?.precipitation_probability_max ?? [];
+  const highs        = data.daily?.temperature_2m_max ?? [];
+  const lows         = data.daily?.temperature_2m_min ?? [];
+  const dates        = data.daily?.time ?? [];
+  const precips      = data.daily?.precipitation_probability_max ?? [];
+  const dailyIds     = data.daily?.weather_code ?? [];
+  const dailyDescs   = data.daily?.description ?? [];
 
-  const forecastDays: ForecastDay[] = dates.map((date, i) => ({
-    date,
-    dayName: i === 0 ? "Today" : DAY_NAMES[new Date(date + "T00:00:00").getDay()],
-    high: Math.round(highs[i] ?? 0),
-    low:  Math.round(lows[i]  ?? highs[i] ?? 0),
-    precip: precips[i] ?? 0,
-    hourly: getHourlyForecast(data, date),
-  }));
+  const forecastDays: ForecastDay[] = dates.map((date, i) => {
+    const weatherId = dailyIds[i] ?? 800;
+    const condition = getOpenWeatherCondition(weatherId, "");
+    return {
+      date,
+      dayName: i === 0 ? "Today" : DAY_NAMES[new Date(date + "T00:00:00").getDay()],
+      high: Math.round(highs[i] ?? 0),
+      low:  Math.round(lows[i]  ?? highs[i] ?? 0),
+      precip: precips[i] ?? 0,
+      weatherId,
+      condition,
+      // "Current conditions" (formatWeatherDescription's own fallback) reads
+      // wrong for a future day — fall back to the condition category instead.
+      description: dailyDescs[i] || CONDITION_LABELS[condition],
+      cloudStyle: getOpenWeatherVisualProfile(weatherId).cloudStyle,
+      coverage: getOpenWeatherCoverage(weatherId),
+      hourly: getHourlyForecast(data, date),
+    };
+  });
 
   const allTemps = [...lows, ...highs].filter(Number.isFinite);
   const rangeMin  = allTemps.length ? Math.min(...allTemps) : 0;

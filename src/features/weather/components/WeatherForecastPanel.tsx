@@ -8,7 +8,7 @@ interface WeatherForecastPanelProps {
 
 export function WeatherForecastPanel({ resolved }: WeatherForecastPanelProps): React.ReactElement {
   const { forecastDays, rangeMin, rangeSpan, unitLabel } = resolved;
-  const { selectedDay, setSelectedDay } = useWeatherStore();
+  const { selectedDay, openWeatherCard } = useWeatherStore();
   const unit = unitLabel === "F" ? "imperial" : "metric";
 
   return (
@@ -23,11 +23,7 @@ export function WeatherForecastPanel({ resolved }: WeatherForecastPanelProps): R
             key={day.date}
             type="button"
             className="weather-forecast-day flex min-w-0 flex-1 flex-col items-center"
-            onClick={() => setSelectedDay(
-              isSelected
-                ? { day, unit, mode: selectedDay?.mode === "bars" ? "lines" : "bars" }
-                : { day, unit, mode: "bars" }
-            )}
+            onClick={() => openWeatherCard(isSelected ? null : { day, unit })}
             aria-expanded={isSelected}
           >
             <span className="weather-forecast-name font-medium">{day.dayName}</span>
