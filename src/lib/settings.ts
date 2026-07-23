@@ -385,15 +385,6 @@ export async function hydrateSettingsFromIndexedDb() {
 }
 
 /**
- * Hydration used on app startup — local only. Clerk hasn't loaded yet at this
- * point, so cloud sync happens later via syncSettingsFromCloud() (called from
- * AuthBridge once the session and subscription status resolve).
- */
-export async function hydrateSettings() {
-  return hydrateSettingsFromIndexedDb();
-}
-
-/**
  * Pull cloud settings and reconcile with the local copy by timestamp.
  * - Cloud copy newer (or no local copy): apply cloud locally, return it.
  * - Local copy newer (offline edits): keep local, push it up, return null.

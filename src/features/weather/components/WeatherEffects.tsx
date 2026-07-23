@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import VolumetricCloudscape from "@/features/media/components/VolumetricCloudscape";
 import { getFlashEvent, getFlashEnvelope, makeRng } from "@/features/weather/lightning";
-import type { CloudCoverage, CloudStyle, PrecipitationStyle, WeatherPhase, WeatherVisualProfile } from "@/features/weather/types/weather";
+import type { PrecipitationStyle, WeatherVisualProfile } from "@/features/weather/types/weather";
 
 const MAX_DPR = 1.5;
 
@@ -588,15 +587,4 @@ export function AtmosphereLayer({ visual }: { visual: WeatherVisualProfile }): R
       />
     </>
   );
-}
-
-interface CloudLayersProps {
-  coverage: CloudCoverage;
-  phase: WeatherPhase;
-  cloudStyle?: CloudStyle;
-  fogIntensity?: number;
-}
-
-export function CloudLayers({ coverage, phase, cloudStyle = "stratocumulus", fogIntensity = 0 }: CloudLayersProps): React.ReactElement {
-  return <VolumetricCloudscape coverage={coverage} phase={phase} cloudStyle={cloudStyle} fogIntensity={fogIntensity} />;
 }

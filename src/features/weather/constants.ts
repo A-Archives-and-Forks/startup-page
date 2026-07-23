@@ -1,36 +1,5 @@
 import type { WeatherCondition } from "./types";
 
-export const OPEN_METEO_CODES: Record<number, { weather: WeatherCondition; description: string }> = {
-  0:  { weather: "Clear",       description: "Clear sky" },
-  1:  { weather: "Clear",       description: "Mainly clear" },
-  2:  { weather: "Clouds",      description: "Partly cloudy" },
-  3:  { weather: "Clouds",      description: "Overcast" },
-  45: { weather: "Fog",         description: "Fog" },
-  48: { weather: "Fog",         description: "Depositing rime fog" },
-  51: { weather: "Drizzle",     description: "Light drizzle" },
-  53: { weather: "Drizzle",     description: "Moderate drizzle" },
-  55: { weather: "Drizzle",     description: "Dense drizzle" },
-  56: { weather: "Drizzle",     description: "Light freezing drizzle" },
-  57: { weather: "Drizzle",     description: "Dense freezing drizzle" },
-  61: { weather: "Rain",        description: "Slight rain" },
-  63: { weather: "Rain",        description: "Moderate rain" },
-  65: { weather: "Rain",        description: "Heavy rain" },
-  66: { weather: "Rain",        description: "Light freezing rain" },
-  67: { weather: "Rain",        description: "Heavy freezing rain" },
-  71: { weather: "Snow",        description: "Slight snow" },
-  73: { weather: "Snow",        description: "Moderate snow" },
-  75: { weather: "Snow",        description: "Heavy snow" },
-  77: { weather: "Snow",        description: "Snow grains" },
-  80: { weather: "Rain",        description: "Slight rain showers" },
-  81: { weather: "Rain",        description: "Moderate rain showers" },
-  82: { weather: "Rain",        description: "Violent rain showers" },
-  85: { weather: "Snow",        description: "Slight snow showers" },
-  86: { weather: "Snow",        description: "Heavy snow showers" },
-  95: { weather: "Thunderstorm", description: "Thunderstorm" },
-  96: { weather: "Thunderstorm", description: "Thunderstorm with hail" },
-  99: { weather: "Thunderstorm", description: "Thunderstorm with heavy hail" },
-};
-
 export const CONDITION_GRADIENTS: Record<WeatherCondition, { day: string; night: string }> = {
   Clear:        { day: "from-sky-400 via-blue-500 to-blue-400",        night: "from-slate-950 via-indigo-950 to-slate-900" },
   Clouds:       { day: "from-slate-800 via-slate-900 to-gray-900",     night: "from-slate-800 via-slate-900 to-gray-900" },

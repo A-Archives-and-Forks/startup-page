@@ -459,27 +459,6 @@ export function getOpenWeatherCoverage(weatherId: number): CloudCoverage {
   return "none";
 }
 
-/** Maps each Open-Meteo WMO code to the best cloud coverage for the 3-D sim. */
-export function getOpenMeteoCoverage(weatherCode: number): CloudCoverage {
-  if (weatherCode === 0 || weatherCode === 1) return "none";
-  if (weatherCode === 2) return "partly";
-  if (weatherCode === 3) return "full";
-  if (weatherCode === 45 || weatherCode === 48) return "full";             // fog
-  if (weatherCode === 51 || weatherCode === 53 || weatherCode === 55) return "full"; // drizzle
-  if (weatherCode === 56 || weatherCode === 57) return "full";             // freezing drizzle
-  if (weatherCode === 61 || weatherCode === 63) return "full";             // slight / moderate rain
-  if (weatherCode === 65 || weatherCode === 67) return "storm";            // heavy rain
-  if (weatherCode === 71 || weatherCode === 73 || weatherCode === 77) return "full"; // snow
-  if (weatherCode === 75) return "storm";                                   // heavy snow
-  if (weatherCode === 80 || weatherCode === 81) return "full";             // rain showers
-  if (weatherCode === 82) return "storm";                                   // violent showers
-  if (weatherCode === 85) return "full";                                    // slight snow showers
-  if (weatherCode === 86) return "storm";                                   // heavy snow showers
-  if (weatherCode === 95) return "storm";                                   // thunderstorm
-  if (weatherCode === 96 || weatherCode === 99) return "storm";            // thunderstorm + hail
-  return "none";
-}
-
 /**
  * Plausible cloud-sky fraction per OpenWeather condition ID, following OpenWeather's
  * own cover definitions: 800 clear 0-10%, 801 few 11-25%, 802 scattered 25-50%,

@@ -6,7 +6,6 @@
 # Run in Git Bash, WSL, or any Unix shell.
 
 .PHONY: help install setup start build build-local build-vercel preview serve deploy deploy-vercel clean dev \
-        server-install server-start all-install \
         dev-cloud env-pull db-generate db-migrate db-studio \
         stripe stripe-secret health stripe-test-checkout stripe-test-sub
 
@@ -46,14 +45,6 @@ install:
 	@echo "Installing dependencies..."
 	pnpm install
 
-# Install server dependencies (legacy Express server)
-server-install:
-	@echo "Installing server dependencies..."
-	pnpm install --filter server
-
-# Install all dependencies
-all-install: install
-
 # Initial project setup
 setup:
 	@echo "Running project setup..."
@@ -68,11 +59,6 @@ start:
 
 # Alias for start
 dev: start
-
-# Start backend server
-server-start:
-	@echo "Starting backend server..."
-	pnpm --dir server exec node index.js
 
 # Build Tailwind CSS
 css:

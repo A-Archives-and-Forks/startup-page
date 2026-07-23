@@ -2,19 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useSettingsStore } from "@/features/settings/stores";
 
-const SEGMENTS = {
-  "0": ["a", "b", "c", "d", "e", "f"],
-  "1": ["b", "c"],
-  "2": ["a", "b", "g", "e", "d"],
-  "3": ["a", "b", "g", "c", "d"],
-  "4": ["f", "g", "b", "c"],
-  "5": ["a", "f", "g", "c", "d"],
-  "6": ["a", "f", "g", "e", "c", "d"],
-  "7": ["a", "b", "c"],
-  "8": ["a", "b", "c", "d", "e", "f", "g"],
-  "9": ["a", "b", "c", "d", "f", "g"],
-};
-
 const DOT_DIGITS = {
   "0": ["111", "101", "101", "101", "111"],
   "1": ["010", "110", "010", "010", "111"],
@@ -65,20 +52,6 @@ function getClockParts(date, use24Hour) {
   };
 }
 
-function SegmentDigit({ value }) {
-  const activeSegments = SEGMENTS[value] || [];
-
-  return (
-    <span className="clock-segment-digit">
-      {["a", "b", "c", "d", "e", "f", "g"].map((segment) => (
-        <span
-          key={segment}
-          className={`clock-segment clock-segment-${segment} ${activeSegments.includes(segment) ? "clock-segment-on" : ""}`}
-        />
-      ))}
-    </span>
-  );
-}
 
 const COLON_GLYPH = ["0", "1", "0", "1", "0"];
 const DIGITS_START_Y = 4;

@@ -105,7 +105,3 @@ export function getEnabledImageFilterKeys(imageEffects) {
     (filter) => filter.key
   );
 }
-
-export function getImageFilterDefinition(filterKey) {
-  return IMAGE_FILTER_DEFINITIONS.find((filter) => filter.key === filterKey) || null;
-}
