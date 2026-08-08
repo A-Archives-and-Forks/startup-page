@@ -41,7 +41,7 @@ function RenderResults() {
 export default function CommandPalette() {
   return (
     <KBarPortal>
-      <KBarPositioner className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/50 backdrop-blur-sm pt-[20vh]">
+      <KBarPositioner className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/50 backdrop-blur-sm px-4 pt-[12vh] sm:pt-[20vh]">
         <KBarAnimator className="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl">
           <KBarSearch className="w-full border-b border-border bg-transparent px-4 py-3 text-base text-foreground placeholder:text-muted-foreground outline-none" />
           <div className="max-h-80 overflow-y-auto pb-2">
