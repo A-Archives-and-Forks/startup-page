@@ -1949,6 +1949,18 @@
   transform: translateX(-50%);
 }
 
+/* Below ~640px the center-anchored pill and the top-right theme/account/
+   settings cluster (AppLayout.tsx, `fixed right-5 top-5`) are wide enough
+   relative to the viewport to visually overlap. Moving the pill to the
+   opposite corner keeps both reachable without touching the dashboard's
+   edit-mode toolbar, which occupies a separate lower band (`top-16`). */
+@media (max-width: 640px) {
+  .vault-nav-center {
+    left: 1.25rem;
+    transform: none;
+  }
+}
+
 .vault-nav-button {
   display: inline-flex;
   align-items: center;
@@ -3279,8 +3291,36 @@
     flex-wrap: wrap;
   }
 
+  /* Code/Template rows (.vg-item-card) pack title + meta chips + date +
+     4 action buttons into one nowrap row (.vg-item-top) — on a narrow phone
+     that fixed-width content alone can exceed the row, squeezing the title
+     to near-zero. Wrapping the row and pushing actions onto their own
+     full-width line keeps the title readable and gives the actions more
+     breathing room as a dedicated tap row. */
+  .vg-item-top {
+    flex-wrap: wrap;
+  }
+
   .vg-item-actions {
     opacity: 1;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    gap: 0.4rem;
+  }
+
+  .vg-item-action {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .vg-item-check {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .vg-back {
+    width: 2.5rem;
+    height: 2.5rem;
   }
 }
 
@@ -3291,6 +3331,7 @@
 
 .vg-subtype-picker {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
 }
 
@@ -3737,6 +3778,30 @@
 
 .vault-launcher-add .vault-launcher-tile {
   width: 100%;
+}
+
+/* Anchored to the trigger's horizontal center (not left/right:0) since this
+   tile's column position shifts depending on how many launcher tiles are
+   registered — centering keeps the popover clear of both grid edges
+   regardless of which column it lands in. */
+.vault-launcher-popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 10rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  background: color-mix(in oklab, var(--popover) 96%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.35);
 }
 
 /* ===== Weather V2 (frosted-glass hourly card) ===== */
