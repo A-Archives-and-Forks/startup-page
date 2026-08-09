@@ -17,6 +17,27 @@ const BACKUP_LIMIT = 10;
 const SETTINGS_EXPORT_FORMAT = "startup-page-settings";
 const SETTINGS_MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
+// Mirrors the domain split in api/_lib/settingsDomains.ts (user_bookmarks,
+// user_widgets, user_vault_items, user_read_items, user_themes,
+// user_preferences) — used client-side for per-domain export and for
+// detecting which domains an imported file actually contains. Duplicated
+// rather than shared across the api/ and src/ bundles since it's a small,
+// stable list.
+export const DOMAIN_KEY_GROUPS: Record<string, { label: string; keys: string[] }> = {
+  bookmarks: { label: "Bookmarks", keys: ["bookmark"] },
+  widgets: { label: "Widgets & layout", keys: ["widgets", "layout"] },
+  vaultItems: { label: "Vault", keys: ["vaultItems"] },
+  readItems: { label: "Reading list", keys: ["readItems"] },
+  themes: { label: "Custom themes", keys: ["customThemes"] },
+  preferences: {
+    label: "Preferences",
+    keys: [
+      "latitude", "longitude", "units", "unsplashCredential", "openWeatherCredential",
+      "ui", "featurePanel", "search", "decorativeVideo", "news", "timer", "unsplash",
+    ],
+  },
+};
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -445,6 +466,61 @@ async function writeSettingsToIndexedDb(settings) {
   return record;
 }
 
+export interface BackupSummary {
+  id: string;
+  createdAt: string;
+  size: number;
+}
+
+/** The rolling local backups `writeSettingsToIndexedDb` already collects on every save, newest first. */
+export async function listBackups(): Promise<BackupSummary[]> {
+  const db = await getIndexedDb();
+  if (!db || !db.objectStoreNames.contains(BACKUPS_STORE_NAME)) {
+    return [];
+  }
+
+  return new Promise<BackupSummary[]>((resolve, reject) => {
+    const transaction = db.transaction(BACKUPS_STORE_NAME, "readonly");
+    const request = transaction.objectStore(BACKUPS_STORE_NAME).getAll();
+
+    request.onsuccess = () => {
+      const backups = (request.result || [])
+        // Ids are `${Date.now()}-${random}`, so lexicographic sort is also
+        // chronological — same trick writeSettingsToIndexedDb's pruning uses.
+        .sort((a, b) => (a.id < b.id ? 1 : -1))
+        .map((backup) => ({
+          id: backup.id as string,
+          createdAt: backup.createdAt as string,
+          size: JSON.stringify(backup.settings).length,
+        }));
+      resolve(backups);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readBackupSettings(id: string) {
+  const db = await getIndexedDb();
+  if (!db) return null;
+
+  return new Promise<Record<string, unknown> | null>((resolve, reject) => {
+    const transaction = db.transaction(BACKUPS_STORE_NAME, "readonly");
+    const request = transaction.objectStore(BACKUPS_STORE_NAME).get(id);
+
+    request.onsuccess = () => resolve(request.result?.settings ?? null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** Re-applies one of the rolling local backups, the same way an import does. */
+export async function restoreBackup(id: string) {
+  const settings = await readBackupSettings(id);
+  if (!settings) {
+    throw new Error("Backup not found — it may have been pruned.");
+  }
+  return writeSettings(settings);
+}
+
 async function readSyncedSnapshotFromIndexedDb(): Promise<StoredSettingsRecord | null> {
   const db = await getIndexedDb();
   if (!db) {
@@ -537,7 +613,7 @@ function migrateCookieSettings() {
   return parseSettings(cookieSettings);
 }
 
-function normalizeImportPayload(rawText) {
+function parseImportPayload(rawText) {
   if (typeof rawText !== "string" || rawText.trim() === "") {
     throw new Error("Backup file is empty.");
   }
@@ -562,16 +638,67 @@ function normalizeImportPayload(rawText) {
   }
 
   const candidateSettings = isPlainObject(parsed.settings) ? parsed.settings : parsed;
-  const mergedSettings = normalizeSettingsShape(candidateSettings);
+  return { parsed, candidateSettings };
+}
+
+function normalizeImportPayload(rawText) {
+  const { parsed, candidateSettings } = parseImportPayload(rawText);
 
   return {
-    settings: mergedSettings,
+    settings: normalizeSettingsShape(candidateSettings),
     metadata: {
       format: parsed.format || SETTINGS_EXPORT_FORMAT,
       schemaVersion: Number(parsed.schemaVersion) || 1,
       exportedAt: parsed.exportedAt || null,
     },
   };
+}
+
+/**
+ * Like normalizeImportPayload, but also reports which domain groups
+ * (DOMAIN_KEY_GROUPS) the file actually contains — checked against the raw
+ * parsed object, before normalizeSettingsShape fills in defaults for
+ * whatever's missing, since that would otherwise make every domain look
+ * "present". Lets the import UI show a checklist instead of always
+ * replacing everything.
+ */
+export function previewImportPayload(rawText) {
+  const { parsed, candidateSettings } = parseImportPayload(rawText);
+
+  const presentDomains = Object.entries(DOMAIN_KEY_GROUPS)
+    .filter(([, group]) => group.keys.some((key) => Object.prototype.hasOwnProperty.call(candidateSettings, key)))
+    .map(([domainId]) => domainId);
+
+  return {
+    settings: normalizeSettingsShape(candidateSettings),
+    presentDomains,
+    metadata: {
+      format: parsed.format || SETTINGS_EXPORT_FORMAT,
+      schemaVersion: Number(parsed.schemaVersion) || 1,
+      exportedAt: parsed.exportedAt || null,
+    },
+  };
+}
+
+/** Picks only the given top-level settings keys — no default-filling, unlike normalizeSettingsShape. */
+export function pickSettingsDomain(settings: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (settings && Object.prototype.hasOwnProperty.call(settings, key)) {
+      picked[key] = settings[key];
+    }
+  }
+  return picked;
+}
+
+/** Merges only the selected domains from an imported/backup settings object into the current one. */
+export function mergeImportedDomains(
+  currentSettings: Record<string, unknown>,
+  importedSettings: Record<string, unknown>,
+  domainIds: string[],
+): Record<string, unknown> {
+  const keys = domainIds.flatMap((id) => DOMAIN_KEY_GROUPS[id]?.keys ?? []);
+  return { ...currentSettings, ...pickSettingsDomain(importedSettings, keys) };
 }
 
 export function readSettings() {
@@ -670,23 +797,21 @@ export function mergeSettingsSnapshots(
 }
 
 /**
- * Pull cloud settings and reconcile with the local copy.
- * - No local copy yet, or no synced-snapshot base to diff against (first
- *   sync ever on this device): whole-blob compare by timestamp, same as
- *   before — cloud wins if newer, otherwise local wins and gets pushed up.
- * - Otherwise: three-way merge against the last snapshot both sides agreed
- *   on (see markSyncedSnapshot), per top-level settings key (`widgets`,
- *   `bookmark`, `vaultItems`, ...). A key changed on only one side just
- *   takes that side's value, so e.g. editing the layout on desktop and
- *   bookmarks on a phone — while each was offline or between syncs — no
- *   longer has one whole copy clobber the other. Only a key edited
- *   *differently* on both sides is a real conflict; those fall back to
- *   newer-wins and get surfaced via useAuthStore's setMergeInfo so it's not
- *   silent.
- * - Pull failed for any reason (no token yet, offline, server error, no
- *   subscription, ...): do nothing. Treating a failed pull as "cloud is
- *   empty" is what let an empty local copy silently overwrite real synced
- *   data, so a failure must never trigger a push.
+ * Pull cloud settings and reconcile with the local copy via a three-way
+ * merge against the last snapshot both sides agreed on (see
+ * markSyncedSnapshot), per top-level settings key (`widgets`, `bookmark`,
+ * `vaultItems`, `ui`, ...). If this device has never synced before (no
+ * `syncedSnapshot`) or has no local record at all, the base/local default to
+ * `{}` — every key then arbitrates independently instead of one whole side
+ * replacing the other, so a device's first sync can't silently discard
+ * cloud-only data (e.g. from another device) it has simply never seen. A key
+ * changed on only one side just takes that side's value; a key changed
+ * *differently* on both sides is a real conflict, resolved by newer-wins and
+ * surfaced via useAuthStore's setMergeInfo so it's not silent.
+ * Pull failed for any reason (no token yet, offline, server error, no
+ * subscription, ...): do nothing. Treating a failed pull as "cloud is empty"
+ * is what let an empty local copy silently overwrite real synced data, so a
+ * failure must never trigger a push.
  * Returns the applied settings when local state changed, otherwise null.
  */
 export async function syncSettingsFromCloud() {
@@ -716,23 +841,11 @@ export async function syncSettingsFromCloud() {
     const cloudSettings = normalizeSettingsShape(cloudResult.settings);
     const cloudUpdatedAt = Date.parse(cloudResult.clientUpdatedAt || cloudResult.serverUpdatedAt || "") || 0;
     const localUpdatedAt = localRecord ? Date.parse(localRecord.updatedAt) || 0 : 0;
+    const localSettings = localRecord?.settings ?? {};
+    const baseSettings = syncedSnapshot?.settings ?? {};
 
-    if (!localRecord || !syncedSnapshot) {
-      if (cloudUpdatedAt >= localUpdatedAt) {
-        writeSettingsToLocalStorage(cloudSettings);
-        void writeSettingsToIndexedDb(cloudSettings);
-        void writeSyncedSnapshotToIndexedDb(cloudSettings, cloudResult.serverUpdatedAt || new Date().toISOString());
-        return cloudSettings;
-      }
-      // Local wins — sync it up instead of clobbering offline edits.
-      schedulePushToCloud(localRecord.settings, localRecord.updatedAt);
-      void writeSyncedSnapshotToIndexedDb(localRecord.settings, localRecord.updatedAt);
-      return null;
-    }
-
-    const localSettings = localRecord.settings;
     const { merged, conflictKeys, localHasUniqueChanges } = mergeSettingsSnapshots(
-      syncedSnapshot.settings,
+      baseSettings,
       localSettings,
       cloudSettings,
       cloudUpdatedAt,
@@ -742,7 +855,7 @@ export async function syncSettingsFromCloud() {
     const normalizedMerged = normalizeSettingsShape(merged);
     const mergedDiffersFromLocal = !deepEqual(normalizedMerged, localSettings);
 
-    let updatedAt = localRecord.updatedAt;
+    let updatedAt = localRecord?.updatedAt || new Date().toISOString();
     if (mergedDiffersFromLocal) {
       writeSettingsToLocalStorage(normalizedMerged);
       const record = await writeSettingsToIndexedDb(normalizedMerged);
@@ -796,6 +909,37 @@ export function createSettingsExportFilename() {
   return `startup-page-settings-${isoDate}.json`;
 }
 
+/**
+ * Exports just one domain group's keys (DOMAIN_KEY_GROUPS), unlike
+ * exportSettingsBlob which merges against every default and always produces
+ * a full settings shape. Bypasses createSettingsEnvelope for that reason —
+ * a domain export should only ever claim the keys it actually has.
+ */
+export function exportDomainBlob(settings: Record<string, unknown>, domainId: string): Blob {
+  const group = DOMAIN_KEY_GROUPS[domainId];
+  if (!group) {
+    throw new Error(`Unknown settings domain: ${domainId}`);
+  }
+
+  const envelope = {
+    format: SETTINGS_EXPORT_FORMAT,
+    schemaVersion: SETTINGS_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    domain: domainId,
+    settings: pickSettingsDomain(settings, group.keys),
+    app: { name: "startup-page" },
+  };
+
+  return new Blob([JSON.stringify(envelope, null, 2)], {
+    type: "application/json",
+  });
+}
+
+export function createDomainExportFilename(domainId: string) {
+  const isoDate = new Date().toISOString().replace(/[:.]/g, "-");
+  return `startup-page-${domainId}-${isoDate}.json`;
+}
+
 export async function importSettingsFromFile(file) {
   const rawFile = await file.text();
   const imported = normalizeImportPayload(rawFile);
@@ -806,4 +950,10 @@ export async function importSettingsFromFile(file) {
     metadata: imported.metadata,
     updatedAt: result.updatedAt,
   };
+}
+
+/** Parses and previews a file without applying it — see previewImportPayload. */
+export async function previewImportFile(file) {
+  const rawFile = await file.text();
+  return previewImportPayload(rawFile);
 }
