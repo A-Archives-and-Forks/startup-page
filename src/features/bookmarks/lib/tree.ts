@@ -246,6 +246,37 @@ export function reorderFolder(groups: any[], fromIndex: number, toIndex: number)
   return reordered;
 }
 
+// Filters the tree down to folders/bookmarks matching `query` (case-
+// insensitive, against bookmark name/url and folder title). A folder whose
+// title matches keeps all of its own content as-is; otherwise only its
+// matching bookmarks survive. Children are filtered recursively, and a
+// folder with no matching title/content/descendants is dropped entirely.
+// Returns the same reference for an empty query, matching this file's
+// existing "no-op returns same reference" convention.
+export function filterBookmarkTree(groups: any[], query: string): any[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return groups;
+
+  const filterGroup = (group: any): any | null => {
+    const content = Array.isArray(group?.content) ? group.content : [];
+    const children = Array.isArray(group?.children) ? group.children : [];
+    const titleMatches = typeof group?.title === "string" && group.title.toLowerCase().includes(q);
+    const matchedContent = content.filter(
+      (bookmark: any) =>
+        bookmark?.name?.toLowerCase().includes(q) || bookmark?.url?.toLowerCase().includes(q),
+    );
+    const filteredChildren = children.map(filterGroup).filter(Boolean);
+
+    if (!titleMatches && !matchedContent.length && !filteredChildren.length) {
+      return null;
+    }
+
+    return { ...group, content: titleMatches ? content : matchedContent, children: filteredChildren };
+  };
+
+  return (groups || []).map(filterGroup).filter(Boolean);
+}
+
 // Flattened, depth-indented list of every folder — used to populate folder
 // pickers (add/edit bookmark dialog, "move to folder" menus).
 export function flattenGroups(

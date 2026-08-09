@@ -11,7 +11,15 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
-import { HiChevronLeft } from "react-icons/hi2";
+import {
+  HiArrowDownTray,
+  HiArrowUpTray,
+  HiChevronLeft,
+  HiMagnifyingGlass,
+  HiOutlineFolderPlus,
+  HiPlus,
+  HiXMark,
+} from "react-icons/hi2";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +35,7 @@ import { useBookmarkDialogStore } from "@/features/bookmarks/stores/bookmarkDial
 import { detectBookmarkBrowser, parseBrowserBookmarksHtml } from "@/features/bookmarks/lib/importExport";
 import {
   countBookmarksInGroup,
+  filterBookmarkTree,
   findGroup,
   findGroupWithParent,
   flattenGroups,
@@ -55,6 +64,7 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
   const [draggingImport, setDraggingImport] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
   const [activeDrag, setActiveDrag] = React.useState<any>(null);
+  const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     if (!toast) return undefined;
@@ -63,6 +73,11 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
   }, [toast]);
 
   const flatFolders = React.useMemo(() => flattenGroups(bookmarks), [bookmarks]);
+  const filteredBookmarks = React.useMemo(() => filterBookmarkTree(bookmarks, query), [bookmarks, query]);
+  const totalBookmarks = React.useMemo(
+    () => bookmarks.reduce((sum, group) => sum + countBookmarksInGroup(group), 0),
+    [bookmarks],
+  );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -200,7 +215,9 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
         {groups.map((group) => {
           const content = Array.isArray(group.content) ? group.content : [];
           const children = Array.isArray(group.children) ? group.children : [];
-          const isCollapsed = collapsedCategories.has(group.id);
+          // While searching, force every folder open so matches inside a
+          // collapsed folder are still visible.
+          const isCollapsed = query ? false : collapsedCategories.has(group.id);
           const marginLeft = depth ? `${Math.min(depth * 18, 72)}px` : undefined;
 
           return (
@@ -298,37 +315,61 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
   };
 
   return (
-    <div className="bookmark-vault h-screen w-full overflow-y-auto px-4 pb-16 pt-24 sm:px-6">
-      <div className="bookmark-vault-header">
-        <button type="button" onClick={onBack} className="bookmark-vault-back" title="Back to dashboard">
+    <div className="vg-view">
+      <header className="vg-header">
+        <div>
+          <p className="vg-eyebrow">Bookmark Vault</p>
+          <h1 className="vg-title">{totalBookmarks} bookmarks</h1>
+        </div>
+        <button type="button" className="vg-back" onClick={onBack} title="Back to dashboard">
           <HiChevronLeft className="size-4" />
         </button>
-        <h1>Bookmark Vault:</h1>
-        <div className="bookmark-vault-actions">
-          <button
-            type="button"
-            onClick={() => openAddFolder(null)}
-            className="bookmark-vault-button"
-            title="Create a new folder"
-          >
-            + New Folder
+      </header>
+
+      <div className="vg-toolbar">
+        <label className="vg-search">
+          <HiMagnifyingGlass className="size-4" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search bookmarks..."
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} title="Clear search">
+              <HiXMark className="size-3.5" />
+            </button>
+          )}
+        </label>
+
+        <button
+          type="button"
+          className="vg-tool-btn"
+          onClick={() => openAddFolder(null)}
+          title="Create a new folder"
+        >
+          <HiOutlineFolderPlus className="size-4" />
+          New Folder
+        </button>
+        <button
+          type="button"
+          className="vg-tool-btn"
+          onClick={() => openAddBookmark(lastFolderId || activeCategoryId || flatFolders[0]?.id || null)}
+          title="Add a bookmark"
+        >
+          <HiPlus className="size-4" />
+          Add Bookmark
+        </button>
+
+        <div className="vg-tool-group">
+          <button type="button" className="vg-tool-btn" onClick={openImportModal} title="Import browser bookmarks export">
+            <HiArrowUpTray className="size-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => openAddBookmark(lastFolderId || activeCategoryId || flatFolders[0]?.id || null)}
-            className="bookmark-vault-button"
-            title="Add a bookmark"
-          >
-            + Add Bookmark
-          </button>
-          <button type="button" onClick={openImportModal} className="bookmark-vault-button" title="Import browser bookmarks export">
-            Import
-          </button>
-          <button type="button" onClick={actions.exportBookmarks} className="bookmark-vault-button" title="Export bookmarks as browser HTML">
-            Export
+          <button type="button" className="vg-tool-btn" onClick={actions.exportBookmarks} title="Export bookmarks as browser HTML">
+            <HiArrowDownTray className="size-4" />
           </button>
         </div>
       </div>
+
       <input ref={fileInputRef} type="file" accept=".html,.htm,text/html" className="hidden" onChange={handleImportFile} />
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-xl gap-0 border-border/60 bg-background/98 p-6 pr-14 text-foreground sm:p-7 sm:pr-16">
@@ -378,7 +419,7 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="bookmark-vault-list">{renderBranch(bookmarks, 0)}</div>
+        <div className="bookmark-vault-list">{renderBranch(filteredBookmarks, 0)}</div>
         <DragOverlay>{renderDragOverlay()}</DragOverlay>
       </DndContext>
     </div>
