@@ -1,5 +1,5 @@
+import { sql } from "drizzle-orm";
 import {
-  integer,
   jsonb,
   pgTable,
   timestamp,
@@ -22,19 +22,41 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const userSettings = pgTable("user_settings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" })
-    .unique(),
-  schemaVersion: integer("schema_version").notNull().default(2),
-  settings: jsonb("settings").notNull(),
-  clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }),
-  serverUpdatedAt: timestamp("server_updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
 export type User = typeof users.$inferSelect;
-export type UserSettingsRow = typeof userSettings.$inferSelect;
+
+// One table per settings domain, replacing the old single-blob
+// `user_settings` table. Each still stores its slice of the settings object
+// as JSONB (rather than a fully relational shape) — the domains involved
+// (widget configs, vault items, image-effect settings, ...) have shapes that
+// evolve often, and per-domain JSONB gets the "everything in one table"
+// problem solved without a rigid column schema per field. See
+// api/_lib/settingsDomains.ts for the mapping between these tables and the
+// settings object's top-level keys.
+function domainTable(name: string, dataDefault: "[]" | "{}") {
+  return pgTable(name, {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" })
+      .unique(),
+    data: jsonb("data").notNull().default(sql.raw(`'${dataDefault}'::jsonb`)),
+    clientUpdatedAt: timestamp("client_updated_at", { withTimezone: true }),
+    serverUpdatedAt: timestamp("server_updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  });
+}
+
+export const userBookmarks = domainTable("user_bookmarks", "[]");
+export const userWidgets = domainTable("user_widgets", "{}");
+export const userVaultItems = domainTable("user_vault_items", "[]");
+export const userReadItems = domainTable("user_read_items", "[]");
+export const userThemes = domainTable("user_themes", "[]");
+export const userPreferences = domainTable("user_preferences", "{}");
+
+export type UserBookmarksRow = typeof userBookmarks.$inferSelect;
+export type UserWidgetsRow = typeof userWidgets.$inferSelect;
+export type UserVaultItemsRow = typeof userVaultItems.$inferSelect;
+export type UserReadItemsRow = typeof userReadItems.$inferSelect;
+export type UserThemesRow = typeof userThemes.$inferSelect;
+export type UserPreferencesRow = typeof userPreferences.$inferSelect;

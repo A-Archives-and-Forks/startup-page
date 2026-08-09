@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { deepEqual, mergeSettings, mergeSettingsSnapshots, normalizeSettingsShape } from "./settings";
+import {
+  deepEqual,
+  mergeImportedDomains,
+  mergeSettings,
+  mergeSettingsSnapshots,
+  normalizeSettingsShape,
+  pickSettingsDomain,
+  previewImportPayload,
+} from "./settings";
 
 describe("deepEqual", () => {
   it("treats identical primitives as equal", () => {
@@ -208,5 +216,83 @@ describe("mergeSettingsSnapshots", () => {
     const { merged, conflictKeys } = mergeSettingsSnapshots(base, { newField: "local" }, {}, 100, 100);
     expect(merged.newField).toBe("local");
     expect(conflictKeys).toEqual([]);
+  });
+});
+
+describe("pickSettingsDomain", () => {
+  it("keeps only the requested keys that are present", () => {
+    const settings = { bookmark: ["a"], vaultItems: ["b"], ui: { themeMode: "dark" } };
+    expect(pickSettingsDomain(settings, ["bookmark", "vaultItems"])).toEqual({
+      bookmark: ["a"],
+      vaultItems: ["b"],
+    });
+  });
+
+  it("omits requested keys that don't exist on the source object", () => {
+    expect(pickSettingsDomain({ bookmark: ["a"] }, ["bookmark", "readItems"])).toEqual({ bookmark: ["a"] });
+  });
+});
+
+describe("mergeImportedDomains", () => {
+  it("only overwrites keys belonging to the selected domains, leaving the rest of current untouched", () => {
+    const current = { bookmark: ["current-bookmark"], vaultItems: ["current-vault"], ui: { themeMode: "dark" } };
+    const imported = { bookmark: ["imported-bookmark"], vaultItems: ["imported-vault"], ui: { themeMode: "light" } };
+
+    const merged = mergeImportedDomains(current, imported, ["bookmarks"]);
+
+    expect(merged.bookmark).toEqual(["imported-bookmark"]);
+    expect(merged.vaultItems).toEqual(["current-vault"]);
+    expect(merged.ui).toEqual({ themeMode: "dark" });
+  });
+
+  it("applies multiple selected domains at once", () => {
+    const current = { bookmark: ["current"], readItems: ["current"] };
+    const imported = { bookmark: ["imported"], readItems: ["imported"] };
+
+    const merged = mergeImportedDomains(current, imported, ["bookmarks", "readItems"]);
+
+    expect(merged).toEqual({ bookmark: ["imported"], readItems: ["imported"] });
+  });
+
+  it("is a no-op when no domains are selected", () => {
+    const current = { bookmark: ["current"] };
+    const imported = { bookmark: ["imported"] };
+    expect(mergeImportedDomains(current, imported, [])).toEqual(current);
+  });
+});
+
+describe("previewImportPayload", () => {
+  it("detects only the domains actually present in the raw file, not every default key", () => {
+    const raw = JSON.stringify({ settings: { bookmark: [{ id: "a" }] } });
+    const preview = previewImportPayload(raw);
+    expect(preview.presentDomains).toEqual(["bookmarks"]);
+  });
+
+  it("groups widgets and layout under the same domain", () => {
+    const raw = JSON.stringify({ settings: { layout: { hiddenBoxes: {} } } });
+    const preview = previewImportPayload(raw);
+    expect(preview.presentDomains).toEqual(["widgets"]);
+  });
+
+  it("detects multiple domains and a preferences-only key", () => {
+    const raw = JSON.stringify({ settings: { vaultItems: [], units: "metric" } });
+    const preview = previewImportPayload(raw);
+    expect(preview.presentDomains.sort()).toEqual(["preferences", "vaultItems"]);
+  });
+
+  it("reports no domains for a file with no recognized keys", () => {
+    const raw = JSON.stringify({ settings: { someUnknownField: true } });
+    expect(previewImportPayload(raw).presentDomains).toEqual([]);
+  });
+
+  it("still returns a fully normalized settings object for reference/apply", () => {
+    const raw = JSON.stringify({ settings: { bookmark: [] } });
+    const preview = previewImportPayload(raw);
+    expect(preview.settings).toHaveProperty("widgets");
+    expect(preview.settings).toHaveProperty("ui");
+  });
+
+  it("throws on invalid JSON", () => {
+    expect(() => previewImportPayload("not json")).toThrow();
   });
 });

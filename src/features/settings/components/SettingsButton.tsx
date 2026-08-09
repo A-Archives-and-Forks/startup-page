@@ -21,14 +21,9 @@ import {
   parseCustomThemeCSS,
 } from "@/lib/theme-palettes";
 import { cn } from "@/lib/utils";
-import {
-  createSettingsExportFilename,
-  exportSettingsBlob,
-  getStorageDiagnostics,
-  importSettingsFromFile,
-  resetSettings,
-} from "@/lib/settings";
+import { getStorageDiagnostics } from "@/lib/settings";
 import { useSettingsStore } from "@/features/settings/stores";
+import DataTab from "@/features/settings/components/DataTab";
 
 function PaletteSwatchPreview({ swatches, mode }) {
   const modeSwatches = mode === "dark" ? swatches.dark : swatches.light;
@@ -105,7 +100,6 @@ function SettingsButton() {
   const [customThemeName, setCustomThemeName] = useState("");
   const [customThemeCSS, setCustomThemeCSS] = useState("");
   const [customThemeError, setCustomThemeError] = useState("");
-  const fileInputRef = React.useRef(null);
 
   const refreshStorageDiagnostics = React.useCallback(async () => {
     const nextDiagnostics = await getStorageDiagnostics();
@@ -150,61 +144,6 @@ function SettingsButton() {
         [key]: value
       }
     }));
-  };
-
-  const getDecorativeVideoUrlsForEdit = (decorativeVideo) =>
-    decorativeVideo?.urls?.length ? decorativeVideo.urls : [""];
-
-  const handleDecorativeVideoUrlChange = (index, value) => {
-    setSettingsState((prev) => {
-      const decorativeVideo = prev.decorativeVideo || {};
-      const urls = [...getDecorativeVideoUrlsForEdit(decorativeVideo)];
-
-      urls[index] = value;
-
-      return {
-        ...prev,
-        decorativeVideo: {
-          ...decorativeVideo,
-          urls: urls.slice(0, 10),
-          zoom: decorativeVideo.zoom ?? decorativeVideo.tall?.zoom ?? 1.6,
-          offsetX: decorativeVideo.offsetX ?? decorativeVideo.tall?.offsetX ?? 0,
-          offsetY: decorativeVideo.offsetY ?? decorativeVideo.tall?.offsetY ?? 0,
-        },
-      };
-    });
-  };
-
-  const handleAddDecorativeVideoUrl = () => {
-    setSettingsState((prev) => {
-      const decorativeVideo = prev.decorativeVideo || {};
-      const urls = getDecorativeVideoUrlsForEdit(decorativeVideo);
-
-      return {
-        ...prev,
-        decorativeVideo: {
-          ...decorativeVideo,
-          urls: [...urls, ""].slice(0, 10),
-        },
-      };
-    });
-  };
-
-  const handleRemoveDecorativeVideoUrl = (index) => {
-    setSettingsState((prev) => {
-      const decorativeVideo = prev.decorativeVideo || {};
-      const urls = getDecorativeVideoUrlsForEdit(decorativeVideo).filter(
-        (_, currentIndex) => currentIndex !== index
-      );
-
-      return {
-        ...prev,
-        decorativeVideo: {
-          ...decorativeVideo,
-          urls: urls.length ? urls : [""],
-        },
-      };
-    });
   };
 
   const handleThemeModeChange = (value) => {
@@ -318,16 +257,23 @@ function SettingsButton() {
     }));
   };
 
-  const handleReset = async () => {
-    const resetResult = await resetSettings();
-    useSettingsStore.setState({ settings: resetResult.settings });
-    setSettingsState(resetResult.settings);
-    setThemeMode(resetResult.settings.ui.themeMode);
-    setThemePalette(resetResult.settings.ui.themePalette || "zen");
-    setCustomThemeVars(null);
-    setStatusMessage("Settings reset and backup history refreshed.");
-    await refreshStorageDiagnostics();
-  };
+  // Shared by Data-tab actions (import apply, backup restore, reset) that all
+  // need to replace settingsState wholesale and keep the live theme preview,
+  // the settings store, and the storage diagnostics footer in sync.
+  const applySettings = React.useCallback(
+    async (nextSettings, message, options: { clearCustomThemeVars?: boolean } = {}) => {
+      useSettingsStore.setState({ settings: nextSettings });
+      setSettingsState(nextSettings);
+      setThemeMode(nextSettings.ui.themeMode);
+      setThemePalette(nextSettings.ui.themePalette || "zen");
+      if (options.clearCustomThemeVars) {
+        setCustomThemeVars(null);
+      }
+      setStatusMessage(message);
+      await refreshStorageDiagnostics();
+    },
+    [refreshStorageDiagnostics, setThemeMode, setThemePalette, setCustomThemeVars]
+  );
 
   const handleSave = async () => {
     await persistSettingsToStore(settingsState);
@@ -337,46 +283,6 @@ function SettingsButton() {
     await refreshStorageDiagnostics();
     setOpen(false);
     window.location.reload();
-  };
-
-  const handleExport = () => {
-    const blob = exportSettingsBlob(settingsState);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = createSettingsExportFilename();
-    link.click();
-    URL.revokeObjectURL(url);
-    setStatusMessage("Backup exported with metadata and schema version.");
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImport = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      const importedResult = await importSettingsFromFile(file);
-      useSettingsStore.setState({ settings: importedResult.settings });
-      setSettingsState(importedResult.settings);
-      setThemeMode(importedResult.settings.ui.themeMode);
-      setThemePalette(importedResult.settings.ui.themePalette || "zen");
-      setStatusMessage(
-        importedResult.metadata.exportedAt
-          ? `Backup imported successfully. Original export: ${new Date(importedResult.metadata.exportedAt).toLocaleString()}.`
-          : "Backup imported successfully."
-      );
-      await refreshStorageDiagnostics();
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Backup import failed.");
-    }
-
-    event.target.value = "";
   };
 
   const selectedThemeMode = settingsState.ui?.themeMode || themeMode;
@@ -755,65 +661,8 @@ function SettingsButton() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="content" className="mt-0 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Decorative Video</CardTitle>
-                    <CardDescription>
-                      Add up to 10 looping MP4 links. Video widgets on the dashboard pick a random one by default — click a video widget in edit mode to pin a specific URL or adjust its zoom/offset.
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="space-y-5">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-medium text-foreground">Video URLs</p>
-                          <p className="text-xs text-muted-foreground">
-                            Leave blanks empty. The saved list is capped at 10.
-                          </p>
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleAddDecorativeVideoUrl}
-                          disabled={(settingsState.decorativeVideo?.urls ?? []).length >= 10}
-                        >
-                          Add link
-                        </Button>
-                      </div>
-
-                      <div className="space-y-2">
-                        {(settingsState.decorativeVideo?.urls?.length
-                          ? settingsState.decorativeVideo.urls
-                          : [""]
-                        ).map((url, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Input
-                              value={url}
-                              placeholder="https://example.com/video.mp4"
-                              onChange={(event) =>
-                                handleDecorativeVideoUrlChange(index, event.target.value)
-                              }
-                            />
-
-                            {(settingsState.decorativeVideo?.urls?.length || 0) > 1 ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => handleRemoveDecorativeVideoUrl(index)}
-                              >
-                                Remove
-                              </Button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
+              <TabsContent value="data" className="mt-0">
+                <DataTab settings={settingsState} applySettings={applySettings} storageState={storageState} />
               </TabsContent>
             </div>
 
@@ -823,35 +672,15 @@ function SettingsButton() {
                   <p>
                     Active preview: <span className="font-medium text-foreground">{selectedThemePalette}</span> in <span className="font-medium text-foreground">{selectedThemeMode}</span> mode
                   </p>
-                  <p>
-                    Storage: {storageState?.indexedDbAvailable ? "IndexedDB" : "Local mirror only"} · backups: {storageState?.backupCount ?? 0}
-                    {storageState?.lastSavedAt ? ` · last saved ${new Date(storageState.lastSavedAt).toLocaleString()}` : ""}
-                  </p>
                   {statusMessage ? <p className="text-foreground">{statusMessage}</p> : null}
                 </div>
                 <div className="flex gap-3">
-                  <Button type="button" variant="outline" onClick={handleExport}>
-                    Export backup
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleImportClick}>
-                    Import backup
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleReset}>
-                    Reset
-                  </Button>
                   <Button type="button" onClick={handleSave}>
                     Save and reload
                   </Button>
                 </div>
               </div>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={handleImport}
-            />
           </div>
         </Tabs>
       </DialogContent>
