@@ -217,6 +217,33 @@ describe("mergeSettingsSnapshots", () => {
     expect(merged.newField).toBe("local");
     expect(conflictKeys).toEqual([]);
   });
+
+  it("does not falsely conflict a key the device never touched, even when local's incidental write is newer than the cloud's", () => {
+    // Models a brand-new device's first-ever sync: the local record is still
+    // default settings apart from an incidental auto-write (e.g. geolocation
+    // filling in latitude/longitude on widget mount) with a fresh "now" timestamp,
+    // while the cloud holds real data synced earlier from another device.
+    const defaults = { bookmark: ["default-item"], latitude: null };
+    const cloud = { bookmark: ["real-user-bookmark"], latitude: 40.7 };
+    const local = { bookmark: defaults.bookmark, latitude: 40.7 };
+    const cloudUpdatedAt = 1_000;
+    const localUpdatedAt = 9_999_999; // "just now" on the fresh device — always newer
+
+    // Using the app's real defaults as base (the fix, syncSettingsFromCloud's
+    // seedSettings fallback): an untouched key reads as unchanged, so cloud
+    // wins cleanly with no conflict.
+    const withDefaultsBase = mergeSettingsSnapshots(defaults, local, cloud, cloudUpdatedAt, localUpdatedAt);
+    expect(withDefaultsBase.merged.bookmark).toEqual(["real-user-bookmark"]);
+    expect(withDefaultsBase.conflictKeys).not.toContain("bookmark");
+
+    // Using {} as base (the bug this regresses): bookmark looks "changed" on
+    // both sides relative to nothing, so it's a same-key conflict — and since
+    // the fresh device's write is newer, local's defaults win and clobber the
+    // real cloud data.
+    const withEmptyBase = mergeSettingsSnapshots({}, local, cloud, cloudUpdatedAt, localUpdatedAt);
+    expect(withEmptyBase.merged.bookmark).toEqual(defaults.bookmark);
+    expect(withEmptyBase.conflictKeys).toContain("bookmark");
+  });
 });
 
 describe("pickSettingsDomain", () => {

@@ -802,12 +802,18 @@ export function mergeSettingsSnapshots(
  * markSyncedSnapshot), per top-level settings key (`widgets`, `bookmark`,
  * `vaultItems`, `ui`, ...). If this device has never synced before (no
  * `syncedSnapshot`) or has no local record at all, the base/local default to
- * `{}` — every key then arbitrates independently instead of one whole side
- * replacing the other, so a device's first sync can't silently discard
- * cloud-only data (e.g. from another device) it has simply never seen. A key
- * changed on only one side just takes that side's value; a key changed
- * *differently* on both sides is a real conflict, resolved by newer-wins and
- * surfaced via useAuthStore's setMergeInfo so it's not silent.
+ * the app's normalized defaults (`seedSettings`) rather than `{}` — an
+ * untouched key then reads as unchanged (matches its own default) instead of
+ * "changed relative to nothing," so a key a device never customized can't
+ * register as a same-key conflict just because its local write happens to
+ * carry a fresher timestamp than the real cloud data (every fresh device's
+ * first local write is timestamped "now," which used to be enough to win a
+ * newer-wins tiebreak against older, real, synced-from-elsewhere cloud data
+ * and get pushed back up over it). A key changed on only one side just takes
+ * that side's value; a key changed *differently* on both sides (i.e. the
+ * device genuinely customized it, e.g. while used signed-out before this
+ * sign-in) is a real conflict, resolved by newer-wins and surfaced via
+ * useAuthStore's setMergeInfo so it's not silent.
  * Pull failed for any reason (no token yet, offline, server error, no
  * subscription, ...): do nothing. Treating a failed pull as "cloud is empty"
  * is what let an empty local copy silently overwrite real synced data, so a
@@ -841,8 +847,8 @@ export async function syncSettingsFromCloud() {
     const cloudSettings = normalizeSettingsShape(cloudResult.settings);
     const cloudUpdatedAt = Date.parse(cloudResult.clientUpdatedAt || cloudResult.serverUpdatedAt || "") || 0;
     const localUpdatedAt = localRecord ? Date.parse(localRecord.updatedAt) || 0 : 0;
-    const localSettings = localRecord?.settings ?? {};
-    const baseSettings = syncedSnapshot?.settings ?? {};
+    const localSettings = localRecord?.settings ?? seedSettings;
+    const baseSettings = syncedSnapshot?.settings ?? seedSettings;
 
     const { merged, conflictKeys, localHasUniqueChanges } = mergeSettingsSnapshots(
       baseSettings,
