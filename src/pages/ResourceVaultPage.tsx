@@ -9,35 +9,13 @@ import { normalizeResourceVaultItems, normalizeVaultItems } from "@/features/res
 import { VAULT_KIND_DEFS, VAULT_KIND_ORDER } from "@/features/resourceVault/constants";
 import { useQuickAddStore, type VaultSection } from "@/features/resourceVault/stores/quickAddStore";
 import type { VaultItem } from "@/features/resourceVault/types";
+import PaperPageShell from "@/components/layout/PaperPageShell";
 import vaultPreviewBg from "@/assets/media/vault-preview-bg.jpg";
 
 const VALID_SECTIONS: VaultSection[] = ["links", ...VAULT_KIND_ORDER];
 
 function isValidSection(value: unknown): value is VaultSection {
   return VALID_SECTIONS.includes(value as VaultSection);
-}
-
-// Fiber-grain texture for the paper card (see .vault-preview-paper::before /
-// ::after) — feTurbulence gives the irregular fiber noise, feDiffuseLighting
-// turns that into subtle raised/recessed shading instead of flat static, so
-// it reads as paper grain rather than a screen-door noise overlay.
-function PaperFiberFilters() {
-  return (
-    <svg aria-hidden="true" className="absolute h-0 w-0 overflow-hidden">
-      <filter id="vault-paper-fibers" x="0" y="0" width="100%" height="100%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves={4} seed={11} result="n" />
-        <feDiffuseLighting in="n" lightingColor="#ffffff" surfaceScale={1.5} result="l">
-          <feDistantLight azimuth={238} elevation={58} />
-        </feDiffuseLighting>
-      </filter>
-      <filter id="vault-paper-fibers-fine" x="0" y="0" width="100%" height="100%">
-        <feTurbulence type="fractalNoise" baseFrequency="1.9" numOctaves={3} seed={4} result="n" />
-        <feDiffuseLighting in="n" lightingColor="#ffffff" surfaceScale={1.1}>
-          <feDistantLight azimuth={225} elevation={62} />
-        </feDiffuseLighting>
-      </filter>
-    </svg>
-  );
 }
 
 // Renders inside AppLayout, which already mounts ThemeProvider and the
@@ -222,76 +200,64 @@ export default function ResourceVaultPage() {
   const consumeQuickAdd = useQuickAddStore((state) => state.consumeQuickAdd);
 
   return (
-    <div
-      className="vault-preview-scene"
-      style={{ backgroundImage: `url(${vaultPreviewBg})` }}
-    >
-      <div className="vault-preview-scrim" />
-      <PaperFiberFilters />
-
-      <div className="vault-preview-stage">
-        <div className="vault-preview-paper">
-          <div className="vault-preview-paper-scroll">
-            <div className="vg-section-tabs" role="tablist" aria-label="Vault section">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeSection === "links"}
-                className={`vg-section-tab ${activeSection === "links" ? "vg-section-tab-active" : ""}`}
-                onClick={() => setActiveSection("links")}
-              >
-                <HiOutlineBookOpen className="size-4" />
-                Links
-              </button>
-              {VAULT_KIND_ORDER.map((kind) => {
-                const def = VAULT_KIND_DEFS[kind];
-                const Icon = def.icon;
-                return (
-                  <button
-                    type="button"
-                    key={kind}
-                    role="tab"
-                    aria-selected={activeSection === kind}
-                    className={`vg-section-tab ${activeSection === kind ? "vg-section-tab-active" : ""}`}
-                    onClick={() => setActiveSection(kind)}
-                  >
-                    <Icon className="size-4" />
-                    {def.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {activeSection === "links" ? (
-              <VaultGlassView
-                items={settings.readItems}
-                onBack={() => navigate("/")}
-                onAddItem={handleAddReadItem}
-                onExportItems={handleExportReadItems}
-                onImportItems={handleImportReadItems}
-                onToggleItem={handleToggleReadItem}
-                onUpdateItem={handleUpdateReadItem}
-                onDeleteItem={handleDeleteReadItem}
-                autoFocusSearch={routedFocusSearch}
-              />
-            ) : (
-              <VaultItemsSection
-                kind={activeSection}
-                items={settings.vaultItems}
-                onBack={() => navigate("/")}
-                onAddItem={handleAddVaultItem}
-                onUpdateItem={handleUpdateVaultItem}
-                onDeleteItem={handleDeleteVaultItem}
-                onExportItems={() => handleExportVaultItems(activeSection)}
-                onImportItems={handleImportVaultItems}
-                quickAddPending={quickAddPending}
-                onQuickAddConsumed={consumeQuickAdd}
-                autoFocusSearch={routedFocusSearch}
-              />
-            )}
-          </div>
-        </div>
+    <PaperPageShell backgroundImage={vaultPreviewBg}>
+      <div className="vg-section-tabs" role="tablist" aria-label="Vault section">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === "links"}
+          className={`vg-section-tab ${activeSection === "links" ? "vg-section-tab-active" : ""}`}
+          onClick={() => setActiveSection("links")}
+        >
+          <HiOutlineBookOpen className="size-4" />
+          Links
+        </button>
+        {VAULT_KIND_ORDER.map((kind) => {
+          const def = VAULT_KIND_DEFS[kind];
+          const Icon = def.icon;
+          return (
+            <button
+              type="button"
+              key={kind}
+              role="tab"
+              aria-selected={activeSection === kind}
+              className={`vg-section-tab ${activeSection === kind ? "vg-section-tab-active" : ""}`}
+              onClick={() => setActiveSection(kind)}
+            >
+              <Icon className="size-4" />
+              {def.label}
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      {activeSection === "links" ? (
+        <VaultGlassView
+          items={settings.readItems}
+          onBack={() => navigate("/")}
+          onAddItem={handleAddReadItem}
+          onExportItems={handleExportReadItems}
+          onImportItems={handleImportReadItems}
+          onToggleItem={handleToggleReadItem}
+          onUpdateItem={handleUpdateReadItem}
+          onDeleteItem={handleDeleteReadItem}
+          autoFocusSearch={routedFocusSearch}
+        />
+      ) : (
+        <VaultItemsSection
+          kind={activeSection}
+          items={settings.vaultItems}
+          onBack={() => navigate("/")}
+          onAddItem={handleAddVaultItem}
+          onUpdateItem={handleUpdateVaultItem}
+          onDeleteItem={handleDeleteVaultItem}
+          onExportItems={() => handleExportVaultItems(activeSection)}
+          onImportItems={handleImportVaultItems}
+          quickAddPending={quickAddPending}
+          onQuickAddConsumed={consumeQuickAdd}
+          autoFocusSearch={routedFocusSearch}
+        />
+      )}
+    </PaperPageShell>
   );
 }

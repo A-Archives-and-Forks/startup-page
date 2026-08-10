@@ -4,6 +4,7 @@ import {
   addGroup,
   countBookmarksInGroup,
   ensureBookmarkIds,
+  filterBookmarkTree,
   findBookmarkGroup,
   findGroup,
   findGroupWithParent,
@@ -246,5 +247,77 @@ describe("flattenGroups", () => {
 
   it("returns an empty array for an empty tree", () => {
     expect(flattenGroups([])).toEqual([]);
+  });
+});
+
+describe("filterBookmarkTree", () => {
+  it("returns the same reference for an empty query", () => {
+    const tree = [folder("a", { title: "A" })];
+    expect(filterBookmarkTree(tree, "")).toBe(tree);
+    expect(filterBookmarkTree(tree, "   ")).toBe(tree);
+  });
+
+  it("matches a bookmark by name, dropping non-matching siblings", () => {
+    const tree = [
+      folder("a", {
+        title: "A",
+        content: [
+          { id: "b1", name: "GitHub", url: "https://github.com" },
+          { id: "b2", name: "Example", url: "https://example.com" },
+        ],
+      }),
+    ];
+    const result = filterBookmarkTree(tree, "github");
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: "a",
+        content: [{ id: "b1", name: "GitHub", url: "https://github.com" }],
+      }),
+    ]);
+  });
+
+  it("matches a bookmark by url", () => {
+    const tree = [
+      folder("a", {
+        title: "A",
+        content: [{ id: "b1", name: "Repo", url: "https://github.com/foo/bar" }],
+      }),
+    ];
+    const result = filterBookmarkTree(tree, "foo/bar");
+    expect(result[0].content).toEqual([{ id: "b1", name: "Repo", url: "https://github.com/foo/bar" }]);
+  });
+
+  it("keeps all of a folder's content when the folder title itself matches", () => {
+    const tree = [
+      folder("a", {
+        title: "Work Stuff",
+        content: [
+          { id: "b1", name: "One", url: "https://one.com" },
+          { id: "b2", name: "Two", url: "https://two.com" },
+        ],
+      }),
+    ];
+    const result = filterBookmarkTree(tree, "work");
+    expect(result[0].content).toHaveLength(2);
+  });
+
+  it("recurses into children and drops branches with no matches", () => {
+    const tree = [
+      folder("a", {
+        title: "A",
+        children: [
+          folder("a1", { title: "A1", content: [{ id: "b1", name: "Match", url: "https://match.com" }] }),
+          folder("a2", { title: "A2", content: [{ id: "b2", name: "Nope", url: "https://nope.com" }] }),
+        ],
+      }),
+    ];
+    const result = filterBookmarkTree(tree, "match");
+    expect(result[0].children).toHaveLength(1);
+    expect(result[0].children[0].id).toBe("a1");
+  });
+
+  it("returns an empty array when nothing matches", () => {
+    const tree = [folder("a", { title: "A", content: [{ id: "b1", name: "One", url: "https://one.com" }] })];
+    expect(filterBookmarkTree(tree, "zzz-no-match")).toEqual([]);
   });
 });

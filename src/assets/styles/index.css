@@ -2000,103 +2000,15 @@
   opacity: 0.88;
 }
 
-.bookmark-vault {
-  background: var(--background);
-  color: var(--foreground);
-}
-
-.bookmark-vault-header {
-  display: flex;
-  align-items: center;
-  min-height: 5rem;
-  gap: 0.75rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  padding-bottom: 1.25rem;
-}
-
-.bookmark-vault-header h1 {
-  font-family: var(--font-serif);
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  font-style: italic;
-  line-height: 1;
-}
-
-.bookmark-vault-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-left: auto;
-}
-
-.bookmark-vault-button,
-.bookmark-vault-back,
-.bookmark-vault-add,
-.bookmark-vault-category-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
-  background: color-mix(in oklab, var(--card) 72%, transparent);
-  color: color-mix(in oklab, var(--card-foreground) 82%, transparent);
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.bookmark-vault-button:hover,
-.bookmark-vault-back:hover,
-.bookmark-vault-add:hover,
-.bookmark-vault-category-add:hover {
-  border-color: color-mix(in oklab, var(--ring) 42%, var(--border));
-  background: color-mix(in oklab, var(--accent) 58%, transparent);
-  color: var(--accent-foreground);
-}
-
-.bookmark-vault-button {
-  height: 2rem;
-  padding-inline: 0.75rem;
-  font-size: 0.75rem;
-}
-
-.bookmark-vault-back {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-}
-
+/* Header/toolbar chrome now reuses the shared .vg-header/.vg-toolbar/etc.
+   classes (see the VaultGlassView block below) so Bookmarks and Vault look
+   identical there — only the pill-cloud layout below is bespoke to Bookmarks. */
 .bookmark-vault-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.8rem 0.65rem;
   padding-top: 1.25rem;
-}
-
-.bookmark-vault-add,
-.bookmark-vault-category-add {
-  border-radius: 9999px;
-  box-shadow: none;
-}
-
-.bookmark-vault-category-add {
-  padding-inline: 1.2rem;
-  font-weight: 600;
-}
-
-.bookmark-vault-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.5rem;
-  margin-top: 1.4rem;
-  border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
-  background: color-mix(in oklab, var(--card) 58%, transparent);
-  padding: 0.75rem;
-}
-
-.bookmark-vault-form input,
-.bookmark-vault-form select {
-  border-radius: 0;
 }
 
 .bookmark-header {
