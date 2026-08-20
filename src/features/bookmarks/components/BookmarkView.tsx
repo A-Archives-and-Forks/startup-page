@@ -57,7 +57,9 @@ export default function BookmarkView({ bookmarks, activeCategoryId, onBack, pill
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const detectedBrowser = React.useMemo(() => detectBookmarkBrowser(), []);
-  const [collapsedCategories, setCollapsedCategories] = React.useState<Set<string>>(() => new Set());
+  const [collapsedCategories, setCollapsedCategories] = React.useState<Set<string>>(
+    () => new Set(flattenGroups(bookmarks).map((group) => group.id)),
+  );
   const [lastFolderId, setLastFolderId] = React.useState<string | null>(activeCategoryId);
   const [importOpen, setImportOpen] = React.useState(false);
   const [importError, setImportError] = React.useState("");
